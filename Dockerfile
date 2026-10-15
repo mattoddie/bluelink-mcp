@@ -2,7 +2,7 @@
 
 # The app is pure Python, so the build stage always runs on the build
 # machine's own platform. Multi-arch builds don't run uv under emulation.
-FROM --platform=$BUILDPLATFORM python:3.12-slim-bookworm AS build
+FROM --platform=$BUILDPLATFORM python:3.14-slim-bookworm AS build
 COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /bin/uv
 ENV UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
@@ -17,7 +17,7 @@ ARG VERSION
 RUN if [ -n "$VERSION" ]; then uv version --frozen "$VERSION"; fi \
  && rm -rf .venv && uv sync --frozen --no-dev --no-editable --compile-bytecode
 
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-bookworm
 LABEL org.opencontainers.image.title="bluelink-mcp" \
       org.opencontainers.image.description="MCP server for Hyundai Bluelink" \
       org.opencontainers.image.source="https://github.com/mattoddie/bluelink-mcp" \
