@@ -67,7 +67,7 @@ jobs:
           tools=$(curl -fsS -X POST http://localhost:8080/mcp \
             -H 'Authorization: Bearer ci' -H 'Content-Type: application/json' \
             -H 'Accept: application/json, text/event-stream' \
-            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | sed -n 's/^data: //p; /^{/p' | jq '.result.tools | length')
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | sed -n 's/^data: //; /^{/p' | jq '.result.tools | length')
           echo "Tools registered: $tools"
           test "$tools" -gt 0
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8080/mcp -d '{}')
