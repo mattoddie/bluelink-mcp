@@ -65,9 +65,6 @@ claude mcp add --transport http bluelink http://<docker-host>:8080/mcp \
 
 For Claude Desktop, VS Code, Cursor and others, see [Connecting MCP clients](clients.md).
 
-> [!NOTE]
-> The image is published to GHCR with each release. Until the first release, build it from a clone instead: in `compose.yaml`, replace `image:` with `build: .`.
-
 ## 3. Ask your first questions
 
 Start Claude Code and try:

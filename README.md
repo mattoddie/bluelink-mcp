@@ -78,9 +78,6 @@ claude mcp add --transport http bluelink http://<docker-host>:8080/mcp \
 
 Then ask *"How's the car doing?"*
 
-> [!NOTE]
-> The image is published to GHCR with each release. Until the first release, build it from a clone instead: in `compose.yaml`, replace `image:` with `build: .`.
-
 ## Configuration
 
 All settings are environment variables; [`example.env`](example.env) lists and explains them.
