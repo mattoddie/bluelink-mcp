@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import __version__
+from .client import check_supported
 from .config import Config, ConfigError
 from .server import build_server
 
@@ -33,11 +34,24 @@ class BearerAuth:
         await self.app(scope, receive, send)
 
 
+def transport_security(config: Config) -> TransportSecuritySettings | None:
+    """DNS rebinding protection, when MCP_ALLOWED_HOSTS is set."""
+    if not config.allowed_hosts:
+        return None
+    # With protection on, a request with an Origin header must match an allowed origin.
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=list(config.allowed_hosts),
+        allowed_origins=list(config.allowed_origins),
+    )
+
+
 def main() -> None:
     # stdout carries the protocol in stdio mode, so logs go to stderr.
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(levelname)s %(name)s: %(message)s")
     try:
         config = Config.from_env()
+        check_supported(config)
     except ConfigError as ex:
         sys.exit(f"bluelink-mcp: {ex}")
 
@@ -60,12 +74,9 @@ def main() -> None:
     async def health(_: Request) -> PlainTextResponse:
         return PlainTextResponse("ok")
 
-    security = None
-    if config.allowed_hosts:
-        security = TransportSecuritySettings(
-            enable_dns_rebinding_protection=True, allowed_hosts=list(config.allowed_hosts)
-        )
-    app = mcp.streamable_http_app(transport_security=security, host=config.http_host, stateless_http=True)
+    app = mcp.streamable_http_app(
+        transport_security=transport_security(config), host=config.http_host, stateless_http=True
+    )
 
     import uvicorn
 

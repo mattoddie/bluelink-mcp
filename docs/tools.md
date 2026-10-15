@@ -132,7 +132,7 @@ Start pre-conditioning the cabin (heating or cooling). Seat settings only apply 
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `temperature` | number |  | `21` | Target cabin temperature, 14-30 °C, in 0.5 steps. |
+| `temperature` | number |  | `21` | Target cabin temperature, 14-30 °C, in 0.5 steps. Always in °C; in the USA it is converted to whole °F (62-82). |
 | `duration_minutes` | integer |  | `10` | How long to run. |
 | `defrost` | boolean |  | `false` | Front windscreen defrost. |
 | `heated_rear_window_and_mirrors` | boolean |  | `false` | Heat the rear window and door mirrors. |
@@ -141,7 +141,7 @@ Start pre-conditioning the cabin (heating or cooling). Seat settings only apply 
 | `front_right_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to keep it as is. |
 | `rear_left_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to keep it as is. |
 | `rear_right_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to keep it as is. |
-| `wait` | boolean |  | `true` | Wait (up to ~90 s) for the car to confirm the command. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
 
 ### stop_climate
 
@@ -152,7 +152,7 @@ Stop cabin pre-conditioning.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~90 s) for the car to confirm the command. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
 
 ## charging
 
@@ -173,7 +173,7 @@ Start charging now (the car must be plugged in). Overrides a charging schedule.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~90 s) for the car to confirm the command. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
 
 ### stop_charging
 
@@ -184,7 +184,7 @@ Stop charging.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~90 s) for the car to confirm the command. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
 
 ### set_charge_limits
 
@@ -197,7 +197,7 @@ Set the maximum charge level. Mainly for EVs; many plug-in hybrids don't support
 | `ac_percent` | integer | yes |  | Limit for AC (home/public) charging. |
 | `dc_percent` | integer | yes |  | Limit for DC rapid charging. |
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~90 s) for the car to confirm the command. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
 
 ## security
 
@@ -218,18 +218,18 @@ Lock the car's doors.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~90 s) for the car to confirm the command. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
 
 ### unlock_vehicle
 
 🔴 unlock
 
-Unlock the car's doors. Only do this when the user clearly asks for it.
+Unlock the car's doors. Only do this when the user clearly asks for it. With several cars on the account, give the car's exact name, VIN or ID.
 
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~90 s) for the car to confirm the command. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
 
 ### flash_hazard_lights
 
@@ -240,4 +240,4 @@ Flash the hazard lights briefly, e.g. to find the car in a car park.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~90 s) for the car to confirm the command. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |

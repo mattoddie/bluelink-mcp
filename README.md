@@ -94,11 +94,13 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 | `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle` (needs writes) |
 | `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum gap between `refresh_vehicle_status` calls per car |
 | `BLUELINK_CACHE_SECONDS` | `60` | How long a status read is reused |
+| `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | Wait after a failed login before trying again |
 | `BLUELINK_TOKEN_FILE` | `~/.local/state/bluelink-mcp/token.json` (`/data/token.json` in Docker) | Login token cache. Set it empty to turn caching off. |
 | `MCP_TRANSPORT` | `stdio` (`http` in Docker) | `stdio` or `http` |
 | `MCP_HTTP_HOST`, `MCP_HTTP_PORT` | `127.0.0.1`, `8080` | HTTP listen address |
 | `MCP_AUTH_TOKEN` | | Bearer token clients must send. Required for `http`. |
 | `MCP_ALLOWED_HOSTS` | | Optional Host header allow-list for DNS rebinding protection |
+| `MCP_ALLOWED_ORIGINS` | | Origins browser-based clients may use, when `MCP_ALLOWED_HOSTS` is set |
 
 ### Which region?
 
@@ -108,8 +110,8 @@ In the UK and the rest of Europe, start with `europe`, the classic Bluelink Euro
 
 - **Reads come from Bluelink, not the car.** `get_vehicle_status` returns what the car last uploaded, which happens when it is switched off, while charging and after commands. Check `last_updated_at`.
 - **Waking the car costs something.** `refresh_vehicle_status` makes the car's modem report in. Done often, this drains the 12V battery, and Hyundai Europe limits API calls per day. It is rate limited per car (`BLUELINK_MIN_REFRESH_MINUTES`).
-- **Logins are cached.** Repeated password logins can get a Bluelink account temporarily blocked, so the server keeps the token in `BLUELINK_TOKEN_FILE` (mode `0600`). The file contains your session tokens and password, so treat it like a password.
-- **Commands are slow.** They travel over the mobile network and usually take 20–60 s. With `wait=true` (the default), the tool waits for the car to confirm. `timeout` means the car didn't answer, not necessarily that nothing happened.
+- **Logins are cached.** Repeated password logins can get a Bluelink account temporarily blocked, so the server keeps the token in `BLUELINK_TOKEN_FILE` (mode `0600`). The file contains your session tokens, password and PIN, so treat it like a password. After a failed login the server discards the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before trying again.
+- **Commands are slow.** They travel over the mobile network and usually take 20–60 s. With `wait=true` (the default), the tool waits up to about 60 s for the car to confirm, then returns `pending` with an `action_id` to check later; other tools keep working meanwhile. `timeout` means the car didn't answer, not necessarily that nothing happened.
 
 ## Safety
 

@@ -14,7 +14,7 @@ from pydantic import Field
 
 from . import __version__
 from .client import BluelinkClient, BluelinkError
-from .config import Config
+from .config import REGIONS, Config
 from .format import clean, daily_stats, vehicle_location, vehicle_status, vehicle_summary
 
 INSTRUCTIONS = """\
@@ -41,7 +41,10 @@ VehicleArg = Annotated[
 ]
 WaitArg = Annotated[
     bool,
-    Field(description="Wait (up to ~90 s) for the car to confirm the command."),
+    Field(
+        description="Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, "
+        "the status is pending: check later with get_command_status."
+    ),
 ]
 
 SeatLevel = Literal["off", "low_heat", "medium_heat", "high_heat", "low_cool", "medium_cool", "high_cool"]
@@ -49,6 +52,10 @@ SeatArg = Annotated[
     SeatLevel | None,
     Field(description="Seat heating or ventilation, on cars that have it. Leave out to keep it as is."),
 ]
+USA_MIN_F, USA_MAX_F = 62, 82
+# Bluelink Canada's oldest cars (before model year 2020) start at 16 °C.
+CANADA_OLD_MODEL_YEAR, CANADA_OLD_MIN_C = 2020, 16
+
 SEAT_CODES = {
     "off": 0,
     "low_cool": 3,
@@ -67,10 +74,14 @@ def climate_options(
     heated_rear_window_and_mirrors: bool,
     heated_steering_wheel: bool,
     seats: dict[str, SeatLevel | None],
+    region: int = REGIONS["europe"],
 ) -> ClimateRequestOptions:
-    set_temp = round(temperature * 2) / 2
+    set_temp: float = round(temperature * 2) / 2
     if not 14 <= set_temp <= 30:
         raise BluelinkError("temperature must be between 14 and 30 °C")
+    if region == REGIONS["usa"]:
+        # Bluelink USA takes whole degrees Fahrenheit, from 62 (LO) to 82 (HI).
+        set_temp = min(USA_MAX_F, max(USA_MIN_F, round(set_temp * 9 / 5 + 32)))
     # Bluelink's "heating" code: 1 both, 2 rear window/mirrors only, 3 steering wheel only.
     heating = {
         (False, False): 0,
@@ -172,26 +183,31 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
 
     # --- commands -----------------------------------------------------------
 
-    async def command(vehicle, action, wait):
-        return await run(client.command, vehicle, action, wait)
+    async def command(vehicle, action, wait, exact=False):
+        return await run(client.command, vehicle, action, wait, exact=exact)
 
     @mcp.tool(title="Lock the car", annotations=WRITE)
     async def lock_vehicle(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Lock the car's doors."""
-        return await command(vehicle, lambda m, vid: m.lock(vid), wait)
+        return await command(vehicle, lambda m, v: m.lock(v.id), wait)
 
     if config.allow_unlock:
 
         @mcp.tool(title="Unlock the car", annotations=SENSITIVE)
         async def unlock_vehicle(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
-            """Unlock the car's doors. Only do this when the user clearly asks for it."""
-            return await command(vehicle, lambda m, vid: m.unlock(vid), wait)
+            """Unlock the car's doors. Only do this when the user clearly asks for it.
+            With several cars on the account, give the car's exact name, VIN or ID."""
+            return await command(vehicle, lambda m, v: m.unlock(v.id), wait, exact=True)
 
     @mcp.tool(title="Start climate control", annotations=WRITE)
     async def start_climate(
         vehicle: VehicleArg = None,
         temperature: Annotated[
-            float, Field(description="Target cabin temperature, 14-30 °C, in 0.5 steps.")
+            float,
+            Field(
+                description="Target cabin temperature, 14-30 °C, in 0.5 steps. Always in °C; "
+                "in the USA it is converted to whole °F (62-82)."
+            ),
         ] = 21,
         duration_minutes: Annotated[int, Field(ge=1, le=30, description="How long to run.")] = 10,
         defrost: Annotated[bool, Field(description="Front windscreen defrost.")] = False,
@@ -219,23 +235,39 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
                 "rear_left_seat": rear_left_seat,
                 "rear_right_seat": rear_right_seat,
             },
+            config.region,
         )
-        return await command(vehicle, lambda m, vid: m.start_climate(vid, options), wait)
+
+        def start(m: Any, v: Any) -> str | None:
+            year = v.year
+            if (
+                config.region == REGIONS["canada"]
+                and isinstance(year, int)
+                and year < CANADA_OLD_MODEL_YEAR
+                and options.set_temp < CANADA_OLD_MIN_C
+            ):
+                raise BluelinkError(f"This car's lowest temperature is {CANADA_OLD_MIN_C} °C")
+            return m.start_climate(v.id, options)
+
+        result = await command(vehicle, start, wait)
+        if config.region == REGIONS["usa"]:
+            result["temperature_sent"] = f"{options.set_temp} °F"
+        return result
 
     @mcp.tool(title="Stop climate control", annotations=WRITE)
     async def stop_climate(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Stop cabin pre-conditioning."""
-        return await command(vehicle, lambda m, vid: m.stop_climate(vid), wait)
+        return await command(vehicle, lambda m, v: m.stop_climate(v.id), wait)
 
     @mcp.tool(title="Start charging", annotations=WRITE)
     async def start_charging(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Start charging now (the car must be plugged in). Overrides a charging schedule."""
-        return await command(vehicle, lambda m, vid: m.start_charge(vid), wait)
+        return await command(vehicle, lambda m, v: m.start_charge(v.id), wait)
 
     @mcp.tool(title="Stop charging", annotations=WRITE)
     async def stop_charging(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Stop charging."""
-        return await command(vehicle, lambda m, vid: m.stop_charge(vid), wait)
+        return await command(vehicle, lambda m, v: m.stop_charge(v.id), wait)
 
     @mcp.tool(title="Set charge limits", annotations=WRITE)
     async def set_charge_limits(
@@ -249,11 +281,11 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         wait: WaitArg = True,
     ) -> dict[str, Any]:
         """Set the maximum charge level. Mainly for EVs; many plug-in hybrids don't support it."""
-        return await command(vehicle, lambda m, vid: m.set_charge_limits(vid, ac_percent, dc_percent), wait)
+        return await command(vehicle, lambda m, v: m.set_charge_limits(v.id, ac_percent, dc_percent), wait)
 
     @mcp.tool(title="Flash hazard lights", annotations=WRITE)
     async def flash_hazard_lights(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Flash the hazard lights briefly, e.g. to find the car in a car park."""
-        return await command(vehicle, lambda m, vid: m.start_hazard_lights(vid), wait)
+        return await command(vehicle, lambda m, v: m.start_hazard_lights(v.id), wait)
 
     return mcp

@@ -54,14 +54,14 @@ Every status includes `last_updated_at`, so the assistant can tell you how old t
 
 A command goes from Bluelink to the car over the mobile network, and the car reports back. That usually takes 20 to 60 seconds, longer if the signal is poor.
 
-By default (`wait: true`) the tool waits up to about 90 seconds for the car's answer and returns one of these statuses:
+By default (`wait: true`) the tool waits up to about 60 seconds for the car's answer and returns one of these statuses. Other tools keep working while it waits.
 
 | Status | Meaning |
 |---|---|
 | `success` | The car confirmed the command. |
 | `failed` | The car refused, usually because a condition wasn't met. For example, climate won't start with a door open or the battery too low, and charging won't start unless it's plugged in. |
-| `timeout` | The car didn't answer in time. The command may or may not have happened. Check with `get_vehicle_status` in a minute. |
-| `pending` | Returned with `wait: false`. Check later with `get_command_status` and the `action_id`. |
+| `timeout` | Bluelink gave up waiting for the car. The command may or may not have happened. Check with `get_vehicle_status` in a minute. |
+| `pending` | The car hadn't answered after about 60 seconds, or you passed `wait: false`. Check later with `get_command_status` and the `action_id`. |
 | `sent` | Some regions don't return an `action_id`, so there's nothing to track. |
 
 After a command, the next status read goes back to Bluelink instead of using the cache.
@@ -70,7 +70,7 @@ After a command, the next status read goes back to Bluelink instead of using the
 
 `start_climate` takes:
 
-- `temperature`: 14 to 30 °C, rounded to the nearest 0.5.
+- `temperature`: 14 to 30 °C, rounded to the nearest 0.5. Always in °C, in every region. Bluelink USA takes whole °F from 62 to 82, so in the USA the temperature is converted and kept within that range (21 °C is sent as 70 °F), and the result shows `temperature_sent`. In Canada, cars older than model year 2020 start at 16 °C.
 - `duration_minutes`: 1 to 30. Default 10.
 - `defrost`: front windscreen defrost.
 - `heated_rear_window_and_mirrors` and `heated_steering_wheel`.
@@ -88,4 +88,4 @@ The status's `schedule` section shows the departure times and off-peak window se
 
 ## Several cars
 
-If your account has more than one car, pass `vehicle` with its name (as shown in the app), VIN or ID. Part of the name works too, as long as only one car matches. With one car you can leave it out. Ask *"Which cars do I have?"* to see them.
+If your account has more than one car, pass `vehicle` with its name (as shown in the app), VIN or ID. Part of the name works too, as long as only one car matches, except for `unlock_vehicle`, which needs the exact name, VIN or ID when there are several cars. With one car you can leave it out. Ask *"Which cars do I have?"* to see them.

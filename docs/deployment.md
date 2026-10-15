@@ -34,7 +34,7 @@ The image:
 
 The volume at `/data` holds `token.json`, the cached Bluelink login. Keep it: without it, every restart logs in again, and frequent logins can get a Bluelink account temporarily blocked.
 
-The file contains your session tokens and password. Don't back it up anywhere less safe than your `.env`.
+The file contains your session tokens, password and PIN. Don't back it up anywhere less safe than your `.env`.
 
 ## Image tags
 
@@ -76,7 +76,7 @@ location / {
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_buffering off;          # MCP responses can stream
-    proxy_read_timeout 180s;      # commands can wait ~90 s for the car
+    proxy_read_timeout 120s;      # commands can wait ~60 s for the car
 }
 ```
 

@@ -116,7 +116,8 @@ def vehicle_status(v: Vehicle) -> dict[str, Any]:
             "fuel": {
                 "fuel_level_percent": v.fuel_level,
                 "fuel_low": v.fuel_level_is_low,
-                "fuel_range": _measure(g("fuel_driving_range"), g("fuel_driving_range_unit")),
+                # The library has no public property for this unit.
+                "fuel_range": _measure(g("fuel_driving_range"), g("_fuel_driving_range_unit")),
             },
             "charging": {
                 "plugged_in": v.ev_battery_is_plugged_in,
