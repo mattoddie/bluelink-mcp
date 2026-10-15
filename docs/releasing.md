@@ -78,7 +78,7 @@ Two rulesets protect the repository. You can view and edit them under **Settings
 **Protect main** (the default branch):
 
 - Changes land only through pull requests. Nobody can push directly, force-push or delete the branch, and there are no bypasses.
-- The CI checks *Test (Python 3.12)*, *Test (Python 3.13)* and *Docker image* must pass, and the branch must be up to date with `main`.
+- The CI checks *Test (Python 3.12)*, *Test (Python 3.13)*, *Test (Python 3.14)* and *Docker image* must pass, and the branch must be up to date with `main`.
 - Review threads must be resolved before merging. The only merge method is squash.
 - No approving review is required yet, because GitHub doesn't let authors approve their own pull requests and the project has a single maintainer. Raise this when there are more maintainers.
 

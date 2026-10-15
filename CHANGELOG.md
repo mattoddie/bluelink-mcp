@@ -6,6 +6,8 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-15
+
 ### Added
 
 - MCP server for Hyundai Bluelink (and Kia Connect and Genesis Connect), built on `hyundai_kia_connect_api`, with 15 tools: vehicle status, live refresh, location, trips, daily energy use, command status, lock and unlock, climate, start/stop charging, charge limits and hazard lights.
@@ -17,4 +19,5 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/commits/main
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/mattoddie/bluelink-mcp/releases/tag/v0.1.0
