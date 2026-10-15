@@ -57,7 +57,7 @@ See [docs/development.md](docs/development.md) for the architecture and a walkth
 
 ## Pull request guidelines
 
-- CI must be green. It tests on Python 3.12 and 3.13, lints, checks the generated docs, builds the image for amd64 and arm64, and smoke-tests the container.
+- CI must be green. It tests on Python 3.12, 3.13 and 3.14, lints, checks the generated docs, builds the image for amd64 and arm64, and smoke-tests the container.
 - Match the existing style: type hints, small focused functions, `ruff format`, and comments that explain *why* rather than *what*.
 - **No new dependencies without discussion.** The runtime dependencies are `mcp` and `hyundai_kia_connect_api`.
 - Never include real passwords, PINs, tokens, VINs, registration numbers or locations in code, tests, fixtures, logs or screenshots.
