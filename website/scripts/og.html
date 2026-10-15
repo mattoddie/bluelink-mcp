@@ -1,0 +1,55 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@700&display=block">
+<style>
+*{margin:0;box-sizing:border-box}
+body{width:1200px;height:630px;background:#060a10;color:#e8eef5;font-family:Inter,sans-serif;overflow:hidden;position:relative}
+.bg{position:absolute;inset:0;background:radial-gradient(50% 60% at 15% 20%,rgba(37,99,235,.34),transparent 70%),radial-gradient(45% 55% at 90% 80%,rgba(16,185,129,.24),transparent 70%),radial-gradient(35% 45% at 60% 100%,rgba(14,165,233,.2),transparent 70%)}
+.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(70% 70% at 40% 40%,#000 30%,transparent 85%)}
+.c{position:absolute;inset:0;padding:64px 90px;display:flex;flex-direction:column;justify-content:center}
+.row{display:flex;align-items:center;gap:28px}
+.row svg{flex:none;border-radius:36px;box-shadow:0 20px 50px -12px rgba(2,132,199,.6)}
+.name{font:700 64px 'Space Grotesk';letter-spacing:-.02em}
+h1{font:700 80px/1.02 'Space Grotesk';letter-spacing:-.03em;margin-top:36px}
+h1 span{background:linear-gradient(100deg,#93c5fd,#38bdf8 45%,#6ee7b7);-webkit-background-clip:text;color:transparent}
+p{font-size:28px;color:#b3c0ce;margin-top:26px}
+.tags{display:flex;gap:12px;margin-top:34px}
+.tags b{font:500 20px 'JetBrains Mono';padding:8px 16px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.05);color:#bae6fd}
+</style></head><body><div class="bg"></div><div class="grid"></div>
+<div class="c"><div class="row"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="168" height="168" role="img" aria-label="bluelink-mcp logo">
+  <defs>
+    <linearGradient id="bl-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1D4ED8"/>
+      <stop offset="0.55" stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+    <radialGradient id="bl-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="168" height="168" rx="28" fill="url(#bl-bg)"/>
+  <circle cx="58" cy="76" r="46" fill="url(#bl-glow)"/>
+  <!-- Signal arcs: the car talking to the cloud -->
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-width="4">
+    <path d="M86 30 A14 14 0 0 1 100 44" stroke-opacity="0.9"/>
+    <path d="M86 18 A26 26 0 0 1 112 44" stroke-opacity="0.55"/>
+  </g>
+  <circle cx="87" cy="43" r="4" fill="#FFFFFF"/>
+  <!-- SUV, side view -->
+  <path d="M14 88 V76 Q14 70 20 69 L32 67 L44 54 Q47 51 52 51 H80 Q85 51 88 55 L98 67 L108 69 Q114 70 114 76 V88 Q114 92 110 92 H18 Q14 92 14 88 Z" fill="#FFFFFF"/>
+  <path d="M38 67 L48 57 Q50 55 53 55 H62 V67 Z" fill="#1D4ED8" fill-opacity="0.75"/>
+  <path d="M66 55 H79 Q82 55 84 57 L92 67 H66 Z" fill="#1D4ED8" fill-opacity="0.75"/>
+  <!-- Lightning bolt on the door: plug-in -->
+  <path d="M66 72 L58 82 H64 L61 90 L70 79 H64 Z" fill="#10B981"/>
+  <g fill="#0F172A" fill-opacity="0.85">
+    <circle cx="36" cy="92" r="11"/>
+    <circle cx="92" cy="92" r="11"/>
+  </g>
+  <g fill="#FFFFFF">
+    <circle cx="36" cy="92" r="4.5"/>
+    <circle cx="92" cy="92" r="4.5"/>
+  </g>
+</svg><div class="name">bluelink-mcp</div></div>
+<h1>Talk to your <span>Hyundai.</span></h1>
+<p>An open-source MCP server for Hyundai Bluelink.</p>
+<div class="tags"><b>Hyundai · Kia · Genesis</b><b>Docker</b><b>Read-only by default</b><b>MIT</b></div></div></body></html>

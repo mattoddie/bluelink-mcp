@@ -1,0 +1,28 @@
+name: ✨ Feature request
+description: Suggest a new tool or improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Describe what you'd like to ask your assistant to do, or what's missing today.
+      placeholder: e.g. "I'd like to set my off-peak charging window from the assistant."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: New tool(s), arguments or behaviour. If the hyundai_kia_connect_api library already supports it, link the method. It helps a lot.
+  - type: input
+    id: vehicle
+    attributes:
+      label: Vehicle and region
+      placeholder: e.g. Kia EV6 2024, europe
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd be willing to open a pull request for this

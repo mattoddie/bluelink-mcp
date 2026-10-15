@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Test
+        run: uv run pytest -q
+      - name: Check docs/tools.md is up to date
+        run: uv run python scripts/gen_tool_docs.py --check
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build (linux/amd64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: bluelink-mcp:ci
+          build-args: VERSION=0.0.0+ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: |
+          docker run -d --name smoke -p 8080:8080 \
+            -e BLUELINK_USERNAME=ci@example.com -e BLUELINK_PASSWORD=ci -e MCP_AUTH_TOKEN=ci \
+            bluelink-mcp:ci
+          for i in $(seq 1 30); do curl -fsS http://localhost:8080/health && break; sleep 1; done
+          echo
+          tools=$(curl -fsS -X POST http://localhost:8080/mcp \
+            -H 'Authorization: Bearer ci' -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | sed -n 's/^data: //p; /^{/p' | jq '.result.tools | length')
+          echo "Tools registered: $tools"
+          test "$tools" -gt 0
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8080/mcp -d '{}')
+          test "$code" = 401
+          docker logs smoke
+          docker rm -f smoke
+
+      - name: Build all platforms
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=0.0.0+ci
+          cache-from: type=gha

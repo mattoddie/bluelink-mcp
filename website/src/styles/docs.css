@@ -1,0 +1,25 @@
+/* Starlight theme tuned to the bluelink-mcp brand (blue → sky → emerald). */
+:root {
+  --sl-color-accent-low: #0b2440;
+  --sl-color-accent: #0ea5e9;
+  --sl-color-accent-high: #bae6fd;
+  --sl-font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sl-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #e0f2fe;
+  --sl-color-accent: #0369a1;
+  --sl-color-accent-high: #0c4a6e;
+}
+
+.site-title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* The tool reference has wide argument tables; let them scroll. */
+.sl-markdown-content table {
+  display: block;
+  overflow-x: auto;
+}

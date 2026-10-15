@@ -1,0 +1,16 @@
+{
+  "name": "bluelink-mcp-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-docs": "node scripts/sync-docs.mjs",
+    "dev": "npm run sync-docs && astro dev",
+    "build": "npm run sync-docs && astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.6",
+    "astro": "^7.3.8",
+    "sharp": "^0.35.5"
+  }
+}

@@ -1,0 +1,60 @@
+name: 📡 Compatibility report
+description: Tell us how bluelink-mcp works with your car and region, good or bad.
+labels: [compatibility]
+body:
+  - type: input
+    id: vehicle
+    attributes:
+      label: Vehicle
+      description: Brand, model, powertrain and year.
+      placeholder: e.g. Hyundai Ioniq 5 2023, Kia Sportage PHEV 2024
+    validations:
+      required: true
+  - type: dropdown
+    id: region
+    attributes:
+      label: Region (BLUELINK_REGION)
+      options: [europe, europe-cci, usa, canada, australia, nz, india, china, brazil]
+    validations:
+      required: true
+  - type: input
+    id: country
+    attributes:
+      label: Country
+      placeholder: e.g. United Kingdom
+  - type: input
+    id: bluelink-mcp
+    attributes:
+      label: bluelink-mcp version
+    validations:
+      required: true
+  - type: checkboxes
+    id: worked
+    attributes:
+      label: What worked
+      options:
+        - label: Status
+        - label: Live refresh
+        - label: Location
+        - label: Trips and energy use
+        - label: Lock
+        - label: Unlock
+        - label: Climate
+        - label: Start/stop charging
+        - label: Charge limits
+        - label: Hazard lights
+  - type: dropdown
+    id: result
+    attributes:
+      label: Overall result
+      options:
+        - Everything I tried worked
+        - Mostly works, some tools fail
+        - Doesn't work
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What failed and any error messages. Remove VINs, locations and other private details.

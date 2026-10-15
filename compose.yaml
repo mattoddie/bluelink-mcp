@@ -1,0 +1,17 @@
+# Copy example.env to .env and fill it in, then: docker compose up -d
+services:
+  bluelink-mcp:
+    image: ghcr.io/mattoddie/bluelink-mcp:latest
+    # To build from source instead of pulling, replace the line above with:
+    # build: .
+    container_name: bluelink-mcp
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:8080"
+    volumes:
+      # Keeps the Bluelink login token across restarts, to avoid repeated logins.
+      - bluelink-data:/data
+
+volumes:
+  bluelink-data:

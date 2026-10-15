@@ -1,0 +1,67 @@
+name: 🐛 Bug report
+description: Something doesn't work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please check [Troubleshooting](https://bluelink-mcp.mattoddie.dev/docs/troubleshooting/) first.
+        **Remove passwords, PINs, tokens, VINs, locations and other private details** from anything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: tool
+    attributes:
+      label: Tool(s) involved
+      placeholder: e.g. start_climate
+  - type: textarea
+    id: error
+    attributes:
+      label: Error message or logs
+      description: The tool error text and/or `docker compose logs bluelink-mcp` output.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: bluelink-mcp version
+      description: Shown on the first log line, or the image tag you run.
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: vehicle
+    attributes:
+      label: Vehicle
+      placeholder: e.g. Hyundai Santa Fe PHEV 2022
+    validations:
+      required: true
+  - type: dropdown
+    id: region
+    attributes:
+      label: Region (BLUELINK_REGION)
+      options: [europe, europe-cci, usa, canada, australia, nz, india, china, brazil]
+    validations:
+      required: true
+  - type: input
+    id: access
+    attributes:
+      label: Access settings
+      description: Whether BLUELINK_ALLOW_WRITES and BLUELINK_ALLOW_UNLOCK are on.
+      placeholder: e.g. writes on, unlock off
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Transport and client
+      options:
+        - HTTP — Claude Code
+        - HTTP — other client
+        - stdio — Claude Code
+        - stdio — Claude Desktop
+        - stdio — other client
+    validations:
+      required: true

@@ -1,0 +1,38 @@
+[project]
+name = "bluelink-mcp"
+version = "0.0.0.dev0"
+description = "MCP server for Hyundai Bluelink: check and control your car from an AI assistant"
+readme = "README.md"
+authors = [
+    { name = "Matt Oddie", email = "github@mattoddie.com" }
+]
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "hyundai-kia-connect-api>=4.36.0",
+    "mcp[cli]>=2.3.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+
+[project.scripts]
+bluelink-mcp = "bluelink_mcp.__main__:main"
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# The formatter handles line length; long description strings are fine.
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

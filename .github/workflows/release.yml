@@ -1,0 +1,133 @@
+# Publishing a GitHub release (tag vX.Y.Z) builds the Docker image for
+# amd64 and arm64 and pushes it to ghcr.io/<owner>/bluelink-mcp.
+# See docs/releasing.md.
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # append image details to the release notes
+      packages: write # push to ghcr.io
+      id-token: write # sign the build provenance attestation
+      attestations: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Validate tag
+        id: version
+        run: |
+          if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release tags must be semantic versions like v1.2.3 or v1.2.3-rc.1 (got '$TAG')."
+            exit 1
+          fi
+          version="${TAG#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # Stable releases get the moving tags (X.Y, X, latest); pre-releases only their exact version.
+          if [[ "$version" == *-* || "${{ github.event.release.prerelease }}" == "true" ]]; then
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "stable=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.TAG }},enable=${{ steps.version.outputs.stable }}
+            type=semver,pattern={{major}},value=${{ env.TAG }},enable=${{ steps.version.outputs.stable == 'true' && !startsWith(env.TAG, 'v0.') }}
+            type=raw,value=latest,enable=${{ steps.version.outputs.stable }}
+          labels: |
+            org.opencontainers.image.title=bluelink-mcp
+            org.opencontainers.image.description=MCP server for Hyundai Bluelink
+            org.opencontainers.image.licenses=MIT
+          annotations: |
+            org.opencontainers.image.title=bluelink-mcp
+            org.opencontainers.image.description=MCP server for Hyundai Bluelink
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          build-args: VERSION=${{ steps.version.outputs.version }}
+          # No build cache: release images are built from scratch so nothing cached
+          # by another workflow run can end up in a published image.
+          no-cache: true
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Add image details to the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          gh release view "$TAG" --json body --jq .body > notes.md
+          {
+            echo
+            echo "## Container image"
+            echo
+            echo '```sh'
+            echo "docker pull $IMAGE:$VERSION"
+            echo '```'
+            echo
+            echo "Platforms: \`linux/amd64\`, \`linux/arm64\` · Digest: \`$DIGEST\`"
+            echo
+            echo "Tags: $(echo "$TAGS" | sed 's/.*:/`/; s/$/`/' | paste -sd ' ' | sed 's/ /, /g')"
+          } >> notes.md
+          gh release edit "$TAG" --notes-file notes.md
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+            echo "### Published \`$IMAGE:$VERSION\`"
+            echo
+            echo "$TAGS" | sed 's/^/- `/; s/$/`/'
+          } >> "$GITHUB_STEP_SUMMARY"
