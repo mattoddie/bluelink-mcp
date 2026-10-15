@@ -36,7 +36,7 @@ bluelink-mcp is configured entirely with environment variables. With Docker Comp
 | `china` | China |
 | `brazil` | Brazil |
 
-The region must match where your account was created, not where the car is now. See [Compatibility](compatibility.md) for what each region supports.
+The region must match where your account was created, not where the car is now. A brand the region doesn't support (such as `genesis` with `europe-cci`, or `hyundai` with `nz`) stops the server at startup. See [Compatibility](compatibility.md) for what each region supports.
 
 ## Access levels
 
@@ -61,8 +61,11 @@ See [Cached and live data](usage.md#cached-and-live-data) for what these mean in
 | Variable | Default | Description |
 |---|---|---|
 | `BLUELINK_TOKEN_FILE` | `$XDG_STATE_HOME/bluelink-mcp/token.json` (usually `~/.local/state/bluelink-mcp/token.json`); `/data/token.json` in the Docker image | Where to cache the Bluelink login. Set it to an empty value to turn caching off. |
+| `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | After a failed login, how long to wait before trying again. Until then, tools return an error without contacting Bluelink. `0` turns the wait off. |
 
-Bluelink can temporarily block accounts that log in too often, so the server saves its session and reuses it until it expires, then refreshes it. The file is written with mode `0600`. It contains session tokens and, because the library needs it to log in again, your password, so protect it like a password. A cache written for a different username is ignored.
+Bluelink can temporarily block accounts that log in too often, so the server saves its session and reuses it until it expires, then refreshes it. The file is written with mode `0600`. It contains session tokens and, because the library needs them to log in again, your **password and PIN**, so protect it like a password. A cache written for a different username, or one that can't be read, is ignored.
+
+The password and PIN in the cache are always replaced with the ones you configured, so after changing your Bluelink password you only need to update `BLUELINK_PASSWORD` and restart. If a login is rejected, the server deletes the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before logging in again, so a wrong password can't lock the account by retrying on every request.
 
 ## MCP transport
 
@@ -73,8 +76,11 @@ Bluelink can temporarily block accounts that log in too often, so the server sav
 | `MCP_HTTP_PORT` | `8080` | Port to listen on |
 | `MCP_AUTH_TOKEN` | | Bearer token clients must send. **Required** for `http`; the server refuses to start without it. Generate one with `openssl rand -hex 32`. |
 | `MCP_ALLOWED_HOSTS` | | Optional comma-separated allow-list of `Host` header values, for DNS rebinding protection, such as `bluelink.example.com,192.168.1.20:8080` |
+| `MCP_ALLOWED_ORIGINS` | | Optional comma-separated allow-list of `Origin` header values, such as `https://claude.ai`. Needs `MCP_ALLOWED_HOSTS`. |
 
 The HTTP server serves the MCP endpoint at `/mcp` and an unauthenticated health check at `/health`.
+
+With `MCP_ALLOWED_HOSTS` set, requests that carry an `Origin` header (browser-based clients do; command-line and desktop clients usually don't) are rejected with `403` unless the origin is in `MCP_ALLOWED_ORIGINS`. A port wildcard such as `http://localhost:*` is allowed in both lists.
 
 ## Example configs
 

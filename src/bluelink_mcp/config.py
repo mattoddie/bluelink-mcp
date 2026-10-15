@@ -45,6 +45,10 @@ def _int(env: dict[str, str], name: str, default: int) -> int:
         raise ConfigError(f"{name} must be a whole number, not {raw!r}") from None
 
 
+def _list(env: dict[str, str], name: str) -> tuple[str, ...]:
+    return tuple(item.strip() for item in env.get(name, "").split(",") if item.strip())
+
+
 def _default_state_dir() -> Path:
     base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
     return Path(base) / "bluelink-mcp"
@@ -63,12 +67,14 @@ class Config:
     allow_writes: bool = False
     allow_unlock: bool = False
     min_refresh_minutes: int = 10
+    login_retry_minutes: int = 5
     cache_max_age_seconds: int = 60
     transport: str = "stdio"
     http_host: str = "127.0.0.1"
     http_port: int = 8080
     auth_token: str = field(default="", repr=False)
     allowed_hosts: tuple[str, ...] = ()
+    allowed_origins: tuple[str, ...] = ()
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> Config:
@@ -102,7 +108,14 @@ class Config:
         if allow_unlock and not allow_writes:
             raise ConfigError("BLUELINK_ALLOW_UNLOCK needs BLUELINK_ALLOW_WRITES=true too")
 
-        hosts = tuple(h.strip() for h in env.get("MCP_ALLOWED_HOSTS", "").split(",") if h.strip())
+        hosts = _list(env, "MCP_ALLOWED_HOSTS")
+        origins = _list(env, "MCP_ALLOWED_ORIGINS")
+        if origins and not hosts:
+            raise ConfigError("MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS too")
+
+        login_retry_minutes = _int(env, "BLUELINK_LOGIN_RETRY_MINUTES", 5)
+        if login_retry_minutes < 0:
+            raise ConfigError("BLUELINK_LOGIN_RETRY_MINUTES must not be negative")
 
         return cls(
             username=username,
@@ -116,10 +129,12 @@ class Config:
             allow_writes=allow_writes,
             allow_unlock=allow_unlock,
             min_refresh_minutes=_int(env, "BLUELINK_MIN_REFRESH_MINUTES", 10),
+            login_retry_minutes=login_retry_minutes,
             cache_max_age_seconds=_int(env, "BLUELINK_CACHE_SECONDS", 60),
             transport=transport,
             http_host=env.get("MCP_HTTP_HOST", "127.0.0.1").strip() or "127.0.0.1",
             http_port=_int(env, "MCP_HTTP_PORT", 8080),
             auth_token=env.get("MCP_AUTH_TOKEN", "").strip(),
             allowed_hosts=hosts,
+            allowed_origins=origins,
         )

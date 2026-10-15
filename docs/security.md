@@ -13,7 +13,7 @@ bluelink-mcp can find, lock, unlock and pre-condition a real car. This page expl
 | Asset | Risk if exposed |
 |---|---|
 | Your Bluelink password and PIN | Full control of the car through the official app, from anywhere |
-| The token cache (`token.json`) | A working Bluelink session, plus your password |
+| The token cache (`token.json`) | A working Bluelink session, plus your password and PIN |
 | The car's location | Where you live, work and park |
 | Remote commands | Unlocking the car; draining the battery with climate; stopping a charge you needed |
 | `MCP_AUTH_TOKEN` | Whatever tools the server has registered |
@@ -24,9 +24,11 @@ bluelink-mcp can find, lock, unlock and pre-condition a real car. This page expl
 2. **Unlock has its own switch.** `unlock_vehicle` also needs `BLUELINK_ALLOW_UNLOCK=true`. Locking, climate and charging are useful day to day, and unlocking rarely is, so most people should leave it off.
 3. **Tool annotations.** Tools are marked read-only, or destructive for unlock, so clients that support annotations, such as Claude Code, ask before running commands unless you've allowed them.
 4. **Bearer token for HTTP.** The server won't start in HTTP mode without `MCP_AUTH_TOKEN`, and the token is compared in constant time. Only `/health` is open.
-5. **DNS rebinding protection.** Set `MCP_ALLOWED_HOSTS` to reject requests with unexpected `Host` headers.
+5. **DNS rebinding protection.** Set `MCP_ALLOWED_HOSTS` to reject requests with unexpected `Host` headers, and `MCP_ALLOWED_ORIGINS` to list the browser origins allowed to call the server; other origins are rejected.
 6. **Rate-limited wake-ups.** `refresh_vehicle_status` can't be called in a loop to drain the 12V battery.
-7. **Secrets stay out of output.** Tools never return the password, PIN or tokens, and configuration is redacted when printed. The token cache is written with mode `0600`.
+7. **Secrets stay out of output.** Tools never return the password, PIN or tokens, and configuration is redacted when printed. Errors from Bluelink are reported as fixed messages with the error type, not the raw response; details go to the log at debug level. The token cache is written with mode `0600`.
+8. **No login loops.** After a failed login the server discards the token cache and doesn't try again for `BLUELINK_LOGIN_RETRY_MINUTES`, so a wrong or changed password can't get the account locked.
+9. **Unlock picks the car exactly.** With several cars on the account, `unlock_vehicle` needs the exact name, VIN or ID; part of a name isn't enough.
 
 ## Prompt injection
 
@@ -49,7 +51,7 @@ To limit the impact:
 
 ## Checklist
 
-- [ ] `.env` and `token.json` are readable only by you
+- [ ] `.env` and `token.json` (which holds your password and PIN) are readable only by you
 - [ ] `MCP_AUTH_TOKEN` is long and random (`openssl rand -hex 32`)
 - [ ] The HTTP port isn't reachable from the internet, or is behind TLS
 - [ ] `BLUELINK_ALLOW_UNLOCK` is off unless you need it
