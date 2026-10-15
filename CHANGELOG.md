@@ -6,6 +6,12 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-15
+
+### Changed
+
+- The Docker image now runs on Python 3.14, and CI tests on Python 3.12, 3.13 and 3.14.
+
 ## [0.1.0] - 2026-10-15
 
 ### Added
@@ -19,5 +25,6 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mattoddie/bluelink-mcp/releases/tag/v0.1.0
