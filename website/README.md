@@ -33,7 +33,7 @@ chromium --headless --disable-gpu --hide-scrollbars --window-size=1200,630 \
 
 ## Deployment
 
-Cloudflare Pages builds the site from this folder on every push. Pushes to `main` deploy to production, and pull requests get a preview URL. It only rebuilds when `website/` or `docs/` changes.
+Cloudflare Pages builds the site from this folder on every push. Pushes to `main` deploy to production, and pull requests get a preview URL. It only rebuilds when `website/`, `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md` or `SECURITY.md` changes, because the site publishes those root files too.
 
 | Setting | Value |
 |---|---|
@@ -41,5 +41,5 @@ Cloudflare Pages builds the site from this folder on every push. Pushes to `main
 | Build command | `npm run build` |
 | Output directory | `dist` |
 | Node version | `NODE_VERSION=24` |
-| Build watch paths | Include `website/*` and `docs/*` |
+| Build watch paths | Include `website/*`, `docs/*`, `CHANGELOG.md`, `CONTRIBUTING.md` and `SECURITY.md` |
 | Custom domain | `bluelink-mcp.mattoddie.dev` |
