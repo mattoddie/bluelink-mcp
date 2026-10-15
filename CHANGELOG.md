@@ -6,6 +6,8 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-15
+
 ### Added
 
 - `MCP_ALLOWED_ORIGINS`, an `Origin` allow-list for HTTP. Before, setting `MCP_ALLOWED_HOSTS` made every request with an `Origin` header fail with 403.
@@ -48,6 +50,7 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mattoddie/bluelink-mcp/releases/tag/v0.1.0
