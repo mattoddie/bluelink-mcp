@@ -1,0 +1,7 @@
+# Cloudflare Pages also serves this site at bluelink-mcp.pages.dev and at a preview address per
+# branch. Keep those copies out of search results so only https://bluelink-mcp.mattoddie.dev is indexed.
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex
