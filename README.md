@@ -4,9 +4,9 @@
 
 # bluelink-mcp
 
-**Talk to your Hyundai.**
+**Talk to your Hyundai or Kia.**
 
-An open-source [Model Context Protocol](https://modelcontextprotocol.io) server for **Hyundai Bluelink**. It lets Claude and other AI assistants check your car's charge, fuel, range, locks and location, and, if you allow it, pre-heat the cabin, lock the doors or start charging.
+An open-source [Model Context Protocol](https://modelcontextprotocol.io) server for **Hyundai Bluelink** and **Kia Connect** (formerly UVO). It lets Claude and other AI assistants check your car's charge, fuel, range, locks and location, and, if you allow it, pre-heat the cabin, lock the doors or start charging.
 
 [![CI](https://github.com/mattoddie/bluelink-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/mattoddie/bluelink-mcp/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/mattoddie/bluelink-mcp?sort=semver)](https://github.com/mattoddie/bluelink-mcp/releases)
@@ -21,13 +21,16 @@ An open-source [Model Context Protocol](https://modelcontextprotocol.io) server 
 
 ---
 
-It's built on [`hyundai_kia_connect_api`](https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api), the library behind the Home Assistant Kia/Hyundai integration, so it also works with Kia Connect and Genesis accounts in the regions that library supports.
+It's built on [`hyundai_kia_connect_api`](https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api), the library behind the Home Assistant Kia/Hyundai integration. Hyundai and Kia work in most regions, and Genesis in some; see [Compatibility](docs/compatibility.md). The name and settings say Bluelink (`BLUELINK_*`), but they cover Kia Connect too: for a Kia, set `BLUELINK_BRAND=kia`.
 
 > **"Is the car charged, and is it locked?"**
 > *The Santa Fe is at 80% (about 52 km of electric range, 610 km total with fuel) and finished charging at 06:10. All doors are locked and the windows are closed. Bluelink last heard from it 25 minutes ago.*
 
+> **"Warm the EV6 up for 15 minutes."**
+> *Done. The Kia confirmed it, so the cabin is heating to 21 °C for 15 minutes. It's at 64%, so there's plenty of charge for that.*
+
 > [!NOTE]
-> This is an unofficial project and isn't affiliated with Hyundai. Bluelink's API is undocumented and changes without notice.
+> This is an unofficial project and isn't affiliated with Hyundai, Kia or Genesis. Their APIs are undocumented and change without notice.
 
 ## Tools
 
@@ -51,7 +54,7 @@ Every tool takes an optional `vehicle` (name, VIN or ID). You can leave it out i
 
 ## Quick start
 
-You need a Bluelink account that works in the app, and [uv](https://docs.astral.sh/uv/) or Docker.
+You need a Hyundai Bluelink or Kia Connect account that works in the app, and [uv](https://docs.astral.sh/uv/) or Docker. The defaults are for a Hyundai in Europe. For a Kia, add `BLUELINK_BRAND=kia`, and outside Europe set `BLUELINK_REGION`.
 
 ### Claude Code with uv (stdio)
 
@@ -65,12 +68,12 @@ claude mcp add bluelink \
   -- uv run --directory "$PWD" bluelink-mcp
 ```
 
-Claude Desktop and other clients use the same command (`uv run --directory /path/to/bluelink-mcp bluelink-mcp`) with the same environment variables.
+For a Kia, add `-e BLUELINK_BRAND=kia`. Claude Desktop and other clients use the same command (`uv run --directory /path/to/bluelink-mcp bluelink-mcp`) with the same environment variables.
 
 ### Docker (Streamable HTTP)
 
 ```sh
-cp example.env .env   # fill in BLUELINK_* and a random MCP_AUTH_TOKEN (openssl rand -hex 32)
+cp example.env .env   # fill in BLUELINK_* (BLUELINK_BRAND=kia for a Kia) and a random MCP_AUTH_TOKEN (openssl rand -hex 32)
 docker compose up -d
 claude mcp add --transport http bluelink http://<docker-host>:8080/mcp \
   --header "Authorization: Bearer <MCP_AUTH_TOKEN>"
@@ -84,10 +87,10 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 
 | Variable | Default | |
 | --- | --- | --- |
-| `BLUELINK_USERNAME`, `BLUELINK_PASSWORD` | | Your Bluelink app login (required) |
-| `BLUELINK_PIN` | | Your Bluelink PIN. Europe needs it for remote commands. |
+| `BLUELINK_USERNAME`, `BLUELINK_PASSWORD` | | Your Bluelink or Kia Connect app login (required) |
+| `BLUELINK_PIN` | | Your app PIN. Europe needs it for remote commands. |
 | `BLUELINK_REGION` | `europe` | `europe`, `europe-cci`, `usa`, `canada`, `australia`, `nz`, `india`, `china`, `brazil` |
-| `BLUELINK_BRAND` | `hyundai` | `hyundai`, `kia`, `genesis` |
+| `BLUELINK_BRAND` | `hyundai` | `hyundai` (Bluelink), `kia` (Kia Connect / UVO), `genesis` (Genesis Connect) |
 | `BLUELINK_LANGUAGE` | `en` | Response language (Europe) |
 | `BLUELINK_GEOCODE` | `false` | Add a street address to the location via OpenStreetMap |
 | `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools |
@@ -102,15 +105,17 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 | `MCP_ALLOWED_HOSTS` | | Optional Host header allow-list for DNS rebinding protection |
 | `MCP_ALLOWED_ORIGINS` | | Origins browser-based clients may use, when `MCP_ALLOWED_HOSTS` is set |
 
-### Which region?
+### Which region and brand?
 
-In the UK and the rest of Europe, start with `europe`, the classic Bluelink Europe service. Some newer Hyundais use the CCI/"OneApp" backend instead. If login or status fails with `europe`, try `europe-cci`.
+In the UK and the rest of Europe, start with `europe`, the classic Bluelink and Kia Connect Europe service. Some newer Hyundais and Kias use the CCI/"OneApp" backend instead. If login or status fails with `europe`, try `europe-cci`.
+
+Not every brand is available everywhere. New Zealand is Kia only, Brazil is Hyundai only, and Genesis doesn't work with `europe-cci`. See the [compatibility table](docs/compatibility.md#regions-and-brands).
 
 ## Being kind to your car (and your account)
 
 - **Reads come from Bluelink, not the car.** `get_vehicle_status` returns what the car last uploaded, which happens when it is switched off, while charging and after commands. Check `last_updated_at`.
-- **Waking the car costs something.** `refresh_vehicle_status` makes the car's modem report in. Done often, this drains the 12V battery, and Hyundai Europe limits API calls per day. It is rate limited per car (`BLUELINK_MIN_REFRESH_MINUTES`).
-- **Logins are cached.** Repeated password logins can get a Bluelink account temporarily blocked, so the server keeps the token in `BLUELINK_TOKEN_FILE` (mode `0600`). The file contains your session tokens, password and PIN, so treat it like a password. After a failed login the server discards the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before trying again.
+- **Waking the car costs something.** `refresh_vehicle_status` makes the car's modem report in. Done often, this drains the 12V battery, and Hyundai and Kia limit API calls per day in Europe. It is rate limited per car (`BLUELINK_MIN_REFRESH_MINUTES`).
+- **Logins are cached.** Repeated password logins can get an account temporarily blocked, so the server keeps the token in `BLUELINK_TOKEN_FILE` (mode `0600`). The file contains your session tokens, password and PIN, so treat it like a password. After a failed login the server discards the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before trying again.
 - **Commands are slow.** They travel over the mobile network and usually take 20–60 s. With `wait=true` (the default), the tool waits up to about 60 s for the car to confirm, then returns `pending` with an `action_id` to check later; other tools keep working meanwhile. `timeout` means the car didn't answer, not necessarily that nothing happened.
 
 ## Safety
@@ -123,7 +128,7 @@ The server is read-only unless you set `BLUELINK_ALLOW_WRITES=true`, and `unlock
 |---|---|
 | [Getting started](docs/getting-started.md) | From nothing to your first question |
 | [Connecting MCP clients](docs/clients.md) | Claude Code, Claude Desktop, VS Code, Cursor, Codex, stdio |
-| [Configuration](docs/configuration.md) | Every setting, and choosing a region |
+| [Configuration](docs/configuration.md) | Every setting, and choosing a region and brand |
 | [Using bluelink-mcp](docs/usage.md) | Example questions, cached vs live data, commands |
 | [Tool reference](docs/tools.md) | Every tool and argument |
 | [Security](docs/security.md) · [Deployment](docs/deployment.md) · [Troubleshooting](docs/troubleshooting.md) | Running it well |
@@ -136,7 +141,7 @@ uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
 
-The tests use a fake vehicle manager, so they need no Bluelink account or network. See [Development](docs/development.md) and the [contributing guide](CONTRIBUTING.md).
+The tests use a fake vehicle manager, so they need no car account or network. See [Development](docs/development.md) and the [contributing guide](CONTRIBUTING.md).
 
 ## License
 

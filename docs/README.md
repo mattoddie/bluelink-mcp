@@ -4,6 +4,8 @@
 # bluelink-mcp documentation
 </div>
 
+bluelink-mcp connects AI assistants to **Hyundai Bluelink** and **Kia Connect** (formerly UVO), and to **Genesis Connect** in some regions. The docs say "Bluelink" for short; everything applies to Kia and Genesis too unless it says otherwise.
+
 **New here?** Start with [Getting started](getting-started.md). It goes from nothing to *"Is the car charged?"* in about five minutes.
 
 ## Using bluelink-mcp
@@ -12,7 +14,7 @@
 |---|---|
 | [Getting started](getting-started.md) | What you need, running the server with uv or Docker, connecting Claude Code, first questions |
 | [Connecting MCP clients](clients.md) | Claude Code, Claude Desktop, VS Code, Cursor, Codex, generic clients, stdio mode |
-| [Configuration](configuration.md) | Every environment variable, choosing a region, example configs |
+| [Configuration](configuration.md) | Every environment variable, choosing a region and brand, example configs |
 | [Using bluelink-mcp](usage.md) | Example questions, cached and live data, how commands work, climate options |
 | [Tool reference](tools.md) | Every tool and argument, generated from the code |
 

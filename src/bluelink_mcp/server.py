@@ -1,4 +1,4 @@
-"""MCP tools for Hyundai Bluelink (and Kia Connect / Genesis, via the same library)."""
+"""MCP tools for Hyundai Bluelink and Kia Connect (and Genesis Connect, via the same library)."""
 
 from __future__ import annotations
 
@@ -18,9 +18,9 @@ from .config import REGIONS, Config
 from .format import clean, daily_stats, vehicle_location, vehicle_status, vehicle_summary
 
 INSTRUCTIONS = """\
-Tools for a car connected to Hyundai Bluelink.
+Tools for a car connected to Hyundai Bluelink, Kia Connect (formerly UVO) or Genesis Connect.
 
-get_vehicle_status returns what the car last reported to Bluelink, which is cheap and
+get_vehicle_status returns what the car last reported to the service, which is cheap and
 does not disturb the car; check last_updated_at. Use refresh_vehicle_status only when
 the user needs live data: it wakes the car, drains a little of the 12V battery and
 counts against a daily API limit.
@@ -105,7 +105,7 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
     client = client or BluelinkClient(config)
     mcp = MCPServer(
         name="bluelink-mcp",
-        title="Hyundai Bluelink",
+        title="Hyundai Bluelink / Kia Connect",
         instructions=INSTRUCTIONS,
         version=__version__,
     )
@@ -117,7 +117,7 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
 
     @mcp.tool(title="List vehicles", annotations=READ)
     async def list_vehicles() -> list[dict[str, Any]]:
-        """List the vehicles on the Bluelink account."""
+        """List the vehicles on the account."""
         return [vehicle_summary(v) for v in await run(client.vehicles)]
 
     @mcp.tool(title="Get vehicle status", annotations=READ)

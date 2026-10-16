@@ -2,7 +2,7 @@
 
 bluelink-mcp is configured entirely with environment variables. With Docker Compose, put them in `.env` (start from [`example.env`](../example.env)). With uv, pass them from your MCP client's config.
 
-- [Bluelink account](#bluelink-account)
+- [Your account](#your-account)
 - [Choosing a region](#choosing-a-region)
 - [Access levels](#access-levels)
 - [Data freshness](#data-freshness)
@@ -10,33 +10,35 @@ bluelink-mcp is configured entirely with environment variables. With Docker Comp
 - [MCP transport](#mcp-transport)
 - [Example configs](#example-configs)
 
-## Bluelink account
+## Your account
+
+The variables all start with `BLUELINK_`, whatever the brand. For a Kia, use your Kia Connect login and set `BLUELINK_BRAND=kia`.
 
 | Variable | Default | Description |
 |---|---|---|
-| `BLUELINK_USERNAME` | (required) | The email address you log in to the Bluelink app with |
-| `BLUELINK_PASSWORD` | (required) | Your Bluelink password |
-| `BLUELINK_PIN` | | Your 4-digit Bluelink PIN. Europe and Canada need it for remote commands. Reads work without it. |
-| `BLUELINK_REGION` | `europe` | Which Bluelink service to use. See [Choosing a region](#choosing-a-region). |
-| `BLUELINK_BRAND` | `hyundai` | `hyundai`, `kia` or `genesis` |
-| `BLUELINK_LANGUAGE` | `en` | Language for Bluelink's responses (Europe only), such as `en`, `de`, `fr`, `nl` |
+| `BLUELINK_USERNAME` | (required) | The email address you log in to the Bluelink, Kia Connect or Genesis Connect app with |
+| `BLUELINK_PASSWORD` | (required) | Your app password |
+| `BLUELINK_PIN` | | Your 4-digit app PIN. Europe and Canada need it for remote commands. Reads work without it. |
+| `BLUELINK_REGION` | `europe` | Which regional service to use. See [Choosing a region](#choosing-a-region). |
+| `BLUELINK_BRAND` | `hyundai` | Which car maker's service to use: `hyundai` (Bluelink), `kia` (Kia Connect, formerly UVO) or `genesis` (Genesis Connect) |
+| `BLUELINK_LANGUAGE` | `en` | Language for the service's responses (Europe only), such as `en`, `de`, `fr`, `nl` |
 | `BLUELINK_GEOCODE` | `false` | Look up a street address for the car's location with OpenStreetMap. This sends the car's coordinates to OpenStreetMap's Nominatim service. |
 
 ## Choosing a region
 
 | `BLUELINK_REGION` | Service |
 |---|---|
-| `europe` | Bluelink Europe, including the UK. Start here in Europe. |
-| `europe-cci` | Hyundai's newer EU backend, used by the newer app on some recent cars. Try this if `europe` fails. |
-| `usa` | Bluelink USA |
-| `canada` | Bluelink Canada |
-| `australia` | Bluelink Australia |
+| `europe` | Bluelink, Kia Connect and Genesis Connect Europe, including the UK. Start here in Europe. |
+| `europe-cci` | Hyundai's and Kia's newer EU backend, used by the newer apps on some recent cars. Try this if `europe` fails. |
+| `usa` | USA |
+| `canada` | Canada |
+| `australia` | Australia |
 | `nz` | New Zealand (Kia only) |
 | `india` | India |
 | `china` | China |
-| `brazil` | Brazil |
+| `brazil` | Brazil (Hyundai only) |
 
-The region must match where your account was created, not where the car is now. A brand the region doesn't support (such as `genesis` with `europe-cci`, or `hyundai` with `nz`) stops the server at startup. See [Compatibility](compatibility.md) for what each region supports.
+The region must match where your account was created, not where the car is now. A brand the region doesn't support (such as `genesis` with `europe-cci`, `hyundai` with `nz` or `kia` with `brazil`) stops the server at startup. See [Compatibility](compatibility.md) for what each region supports.
 
 ## Access levels
 
@@ -65,7 +67,7 @@ See [Cached and live data](usage.md#cached-and-live-data) for what these mean in
 
 Bluelink can temporarily block accounts that log in too often, so the server saves its session and reuses it until it expires, then refreshes it. The file is written with mode `0600`. It contains session tokens and, because the library needs them to log in again, your **password and PIN**, so protect it like a password. A cache written for a different username, or one that can't be read, is ignored.
 
-The password and PIN in the cache are always replaced with the ones you configured, so after changing your Bluelink password you only need to update `BLUELINK_PASSWORD` and restart. If a login is rejected, the server deletes the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before logging in again, so a wrong password can't lock the account by retrying on every request.
+The password and PIN in the cache are always replaced with the ones you configured, so after changing your password you only need to update `BLUELINK_PASSWORD` and restart. If a login is rejected, the server deletes the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before logging in again, so a wrong password can't lock the account by retrying on every request.
 
 ## MCP transport
 
@@ -84,7 +86,7 @@ With `MCP_ALLOWED_HOSTS` set, requests that carry an `Origin` header (browser-ba
 
 ## Example configs
 
-**Read-only, UK Hyundai, Docker:**
+**Read-only, UK Hyundai, Docker (the defaults):**
 
 ```sh
 BLUELINK_USERNAME=you@example.com
@@ -104,9 +106,23 @@ BLUELINK_GEOCODE=true
 BLUELINK_ALLOW_WRITES=true
 ```
 
-**Kia in Europe:**
+**Kia in the UK or Europe, with commands:**
 
 ```sh
+BLUELINK_USERNAME=you@example.com   # your Kia Connect login
+BLUELINK_PASSWORD=your-password
+BLUELINK_PIN=1234
 BLUELINK_BRAND=kia
-BLUELINK_REGION=europe
+BLUELINK_REGION=europe              # or europe-cci if login fails
+BLUELINK_ALLOW_WRITES=true
+```
+
+**Kia in the USA:**
+
+```sh
+BLUELINK_USERNAME=you@example.com
+BLUELINK_PASSWORD=your-password
+BLUELINK_PIN=1234
+BLUELINK_BRAND=kia
+BLUELINK_REGION=usa
 ```

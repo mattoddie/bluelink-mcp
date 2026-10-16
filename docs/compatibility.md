@@ -1,21 +1,32 @@
 # Compatibility
 
-bluelink-mcp talks to Bluelink through [`hyundai_kia_connect_api`](https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api), the library behind the Home Assistant Kia/Hyundai integration. What works depends on that library, your region and your car.
+bluelink-mcp talks to the car makers' services through [`hyundai_kia_connect_api`](https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api), the library behind the Home Assistant Kia/Hyundai integration. What works depends on that library, your region and your car.
 
+- [Brands](#brands)
 - [Regions and brands](#regions-and-brands)
 - [Features by region](#features-by-region)
 - [Vehicles](#vehicles)
 - [Known gaps](#known-gaps)
 
+## Brands
+
+| Brand (`BLUELINK_BRAND`) | App and service | Regions |
+|---|---|---|
+| Hyundai (`hyundai`, the default) | Bluelink | All except New Zealand |
+| Kia (`kia`) | Kia Connect, formerly UVO | All except Brazil (China is untested) |
+| Genesis (`genesis`) | Genesis Connect | Europe, USA, Canada and Australia |
+
+The project, its settings and these docs say "Bluelink", but they mean the Kia and Genesis services too. A Kia works the same way: set `BLUELINK_BRAND=kia` and use your Kia Connect email, password and PIN.
+
 ## Regions and brands
 
 | Region (`BLUELINK_REGION`) | Brands | Notes |
 |---|---|---|
-| Europe (`europe`), including the UK | Hyundai, Kia, Genesis | The classic Bluelink / Kia Connect Europe service |
+| Europe (`europe`), including the UK | Hyundai, Kia, Genesis | The classic Bluelink / Kia Connect / Genesis Connect Europe service |
 | Europe CCI (`europe-cci`) | Hyundai, Kia | Hyundai's and Kia's newer EU backend. Genesis isn't supported. |
 | USA (`usa`) | Hyundai, Kia, Genesis | |
 | Canada (`canada`) | Hyundai, Kia, Genesis | Needs the PIN for commands |
-| Australia (`australia`) | Hyundai, Kia | |
+| Australia (`australia`) | Hyundai, Kia, Genesis | |
 | New Zealand (`nz`) | Kia only | |
 | India (`india`) | Hyundai, Kia | |
 | China (`china`) | Hyundai | Rewritten in 2026; Kia is untested |
@@ -49,5 +60,5 @@ Plug-in hybrids, such as the Santa Fe, Tucson and Kia Sorento/Sportage PHEVs, re
 
 - **Charging schedules and departure times** are shown in the status but can't be changed yet.
 - **Windows, charge port, valet mode and navigation** aren't exposed, although the library supports some of them on some cars.
-- **One-time passcodes**: if Bluelink asks for an OTP at login (some US Kia accounts), the server can't complete it. Log in through the app once, then try again.
-- Bluelink's API is unofficial and undocumented. Hyundai can change it at any time, and fixes usually arrive in the library first. Keep the image up to date.
+- **One-time passcodes**: if the service asks for an OTP at login (some US Kia accounts), the server can't complete it. Log in through the app once, then try again.
+- The Bluelink, Kia Connect and Genesis Connect APIs are unofficial and undocumented. Hyundai and Kia can change them at any time, and fixes usually arrive in the library first. Keep the image up to date.

@@ -38,7 +38,7 @@ The car's state as Bluelink last heard it, live refreshes, location and command 
 
 🟢 read
 
-List the vehicles on the Bluelink account.
+List the vehicles on the account.
 
 _No arguments._
 
