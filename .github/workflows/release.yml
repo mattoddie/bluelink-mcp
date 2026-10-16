@@ -68,11 +68,11 @@ jobs:
             type=raw,value=latest,enable=${{ steps.version.outputs.stable }}
           labels: |
             org.opencontainers.image.title=bluelink-mcp
-            org.opencontainers.image.description=MCP server for Hyundai Bluelink
+            org.opencontainers.image.description=MCP server for Hyundai Bluelink and Kia Connect
             org.opencontainers.image.licenses=MIT
           annotations: |
             org.opencontainers.image.title=bluelink-mcp
-            org.opencontainers.image.description=MCP server for Hyundai Bluelink
+            org.opencontainers.image.description=MCP server for Hyundai Bluelink and Kia Connect
             org.opencontainers.image.licenses=MIT
 
       - name: Build and push

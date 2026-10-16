@@ -1,7 +1,7 @@
 [project]
 name = "bluelink-mcp"
 version = "0.0.0.dev0"
-description = "MCP server for Hyundai Bluelink: check and control your car from an AI assistant"
+description = "MCP server for Hyundai Bluelink and Kia Connect: check and control your car from an AI assistant"
 readme = "README.md"
 authors = [
     { name = "Matt Oddie", email = "github@mattoddie.com" }

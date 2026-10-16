@@ -3,7 +3,7 @@
 This guide takes you from nothing to asking your assistant about your car. It takes about five minutes.
 
 - [What you need](#what-you-need)
-- [1. Check your Bluelink account](#1-check-your-bluelink-account)
+- [1. Check your account in the app](#1-check-your-account-in-the-app)
 - [2. Run the server](#2-run-the-server)
 - [3. Ask your first questions](#3-ask-your-first-questions)
 - [4. Turn on commands (optional)](#4-turn-on-commands-optional)
@@ -11,17 +11,17 @@ This guide takes you from nothing to asking your assistant about your car. It ta
 
 ## What you need
 
-- A **Hyundai with Bluelink** (or a Kia or Genesis with Kia Connect / Genesis Connect) and an account that works in the official app. See [Compatibility](compatibility.md) for regions.
+- A **Hyundai with Bluelink** or a **Kia with Kia Connect** (formerly UVO), and an account that works in the official app. Genesis Connect works in some regions too. See [Compatibility](compatibility.md) for brands and regions.
 - Your account **email, password and PIN**. The PIN is the 4-digit code the app asks for before remote commands.
 - An MCP client such as [Claude Code](https://claude.com/claude-code) or Claude Desktop.
 - Either **[uv](https://docs.astral.sh/uv/)** (to run it directly) or **Docker** (to run it as a service).
 
-## 1. Check your Bluelink account
+## 1. Check your account in the app
 
-Open the Bluelink app and make sure you can see your car's status and send a command, such as locking it. If the app works, the server will too. If you've just changed your password or the app wants you to accept new terms, do that first, because the server can't click through those screens.
+Open the Bluelink app (or the Kia Connect app for a Kia) and make sure you can see your car's status and send a command, such as locking it. If the app works, the server will too. If you've just changed your password or the app wants you to accept new terms, do that first, because the server can't click through those screens.
 
 > [!TIP]
-> Some people create a second Bluelink account just for automation and share the car with it from the app. That keeps your main login out of config files, and you can revoke it on its own.
+> Some people create a second Bluelink or Kia Connect account just for automation and share the car with it from the app. That keeps your main login out of config files, and you can revoke it on its own.
 
 ## 2. Run the server
 
@@ -41,7 +41,7 @@ claude mcp add bluelink \
   -- uv run --directory "$PWD" bluelink-mcp
 ```
 
-The default region is Europe and the brand Hyundai. For other regions, add `-e BLUELINK_REGION=usa` (or `canada`, `australia` and so on). See [Configuration](configuration.md#choosing-a-region).
+The default region is Europe and the brand Hyundai. For a Kia, add `-e BLUELINK_BRAND=kia` (or `genesis` for a Genesis). For other regions, add `-e BLUELINK_REGION=usa` (or `canada`, `australia` and so on). See [Configuration](configuration.md#choosing-a-region).
 
 ### Option B: Docker (Streamable HTTP)
 
@@ -51,8 +51,8 @@ One long-running container that several clients and machines can share.
 mkdir bluelink-mcp && cd bluelink-mcp
 curl -fsSLO https://raw.githubusercontent.com/mattoddie/bluelink-mcp/main/compose.yaml
 curl -fsSL https://raw.githubusercontent.com/mattoddie/bluelink-mcp/main/example.env -o .env
-# Edit .env: set BLUELINK_USERNAME, BLUELINK_PASSWORD, BLUELINK_PIN
-# and a random MCP_AUTH_TOKEN (openssl rand -hex 32)
+# Edit .env: set BLUELINK_USERNAME, BLUELINK_PASSWORD, BLUELINK_PIN,
+# BLUELINK_BRAND=kia for a Kia, and a random MCP_AUTH_TOKEN (openssl rand -hex 32)
 docker compose up -d
 ```
 
@@ -74,7 +74,7 @@ Start Claude Code and try:
 - *"Where did I park?"*
 - *"How far did I drive this month?"*
 
-The first request logs in to Bluelink, which takes a few seconds. After that the login token is cached (see [Configuration](configuration.md#token-cache)), so later requests are quick and don't log in again.
+The first request logs in to Bluelink or Kia Connect, which takes a few seconds. After that the login token is cached (see [Configuration](configuration.md#token-cache)), so later requests are quick and don't log in again.
 
 Answers come from the state the car last sent to Bluelink. The assistant tells you when that was. If you need it to be current, ask it to *"refresh from the car"*. That wakes the car, so it's [rate limited](usage.md#cached-and-live-data).
 

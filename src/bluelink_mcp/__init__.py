@@ -1,4 +1,4 @@
-"""MCP server for Hyundai Bluelink."""
+"""MCP server for Hyundai Bluelink and Kia Connect."""
 
 from importlib.metadata import PackageNotFoundError, version
 

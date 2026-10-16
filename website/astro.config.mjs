@@ -21,7 +21,7 @@ export default defineConfig({
     starlight({
       title: "bluelink-mcp",
       description:
-        "An open-source MCP server for Hyundai Bluelink. Check and control your car from Claude and other AI assistants.",
+        "An open-source MCP server for Hyundai Bluelink and Kia Connect. Check and control your car from Claude and other AI assistants.",
       logo: { src: "./src/assets/logo.svg" },
       favicon: "/favicon.svg",
       social: [{ icon: "github", label: "GitHub", href: GITHUB }],

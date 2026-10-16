@@ -1,3 +1,4 @@
+# bluelink-mcp for Hyundai Bluelink and Kia Connect (set BLUELINK_BRAND=kia for a Kia).
 # Copy example.env to .env and fill it in, then: docker compose up -d
 services:
   bluelink-mcp:
@@ -10,7 +11,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Keeps the Bluelink login token across restarts, to avoid repeated logins.
+      # Keeps the login token across restarts, to avoid repeated logins.
       - bluelink-data:/data
 
 volumes:

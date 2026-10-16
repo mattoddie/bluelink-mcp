@@ -6,6 +6,12 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-16
+
+### Changed
+
+- The README, docs, website and server instructions now say that bluelink-mcp supports Kia Connect (formerly UVO) as well as Hyundai Bluelink, and Genesis Connect in some regions. This already worked with `BLUELINK_BRAND=kia` or `genesis`; only the wording was Hyundai-only. The compatibility page has a new table of brands by region, and lists Genesis in Australia, which the library supports. Names, settings and tools are unchanged.
+
 ## [0.1.2] - 2026-10-15
 
 ### Added
@@ -50,7 +56,8 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mattoddie/bluelink-mcp/releases/tag/v0.1.0

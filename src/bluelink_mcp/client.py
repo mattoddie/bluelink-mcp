@@ -51,14 +51,14 @@ _TOKEN_FIELDS = ("username", "access_token", "valid_until")
 _EXPLANATIONS: list[tuple[type[BaseException], str]] = [
     (
         ConsentRequiredError,
-        "Bluelink wants you to accept its terms. Log in once in the Bluelink app, then try again.",
+        "Bluelink wants you to accept its terms. Log in once in the official app, then try again.",
     ),
     (
         AuthenticationError,
         "Bluelink rejected the login. Check BLUELINK_USERNAME, BLUELINK_PASSWORD, BLUELINK_PIN, "
         "BLUELINK_REGION and BLUELINK_BRAND.",
     ),
-    (PINMissingError, "This needs your Bluelink PIN. Set BLUELINK_PIN."),
+    (PINMissingError, "This needs your app PIN. Set BLUELINK_PIN."),
     (RateLimitingError, "Bluelink's API limit has been reached. Try again later (the limit resets daily)."),
     (DuplicateRequestError, "Bluelink is still handling an earlier command. Wait a minute and try again."),
     (UnsupportedControlError, "This car does not support that command."),
@@ -217,7 +217,7 @@ class BluelinkClient:
             self._manager.check_and_refresh_token()
         except AuthenticationOTPRequired:
             raise BluelinkError(
-                "Bluelink asked for a one-time passcode. Log in once in the Bluelink app, then try again."
+                "Bluelink asked for a one-time passcode. Log in once in the official app, then try again."
             ) from None
         except Exception as ex:
             # Drop the session so the next call starts from a clean login, but not straight away.

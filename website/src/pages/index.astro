@@ -3,9 +3,9 @@ import logo from "../../../docs/assets/logo.svg?raw";
 import { groups, totals } from "../lib/tools";
 
 const GITHUB = "https://github.com/mattoddie/bluelink-mcp";
-const title = "bluelink-mcp: talk to your Hyundai";
+const title = "bluelink-mcp: talk to your Hyundai or Kia";
 const description =
-  "An open-source MCP server for Hyundai Bluelink. Ask Claude and other AI assistants about your car's charge, range, locks and location, and let them pre-heat the cabin, lock up or start charging when you allow it.";
+  "An open-source MCP server for Hyundai Bluelink and Kia Connect. Ask Claude and other AI assistants about your car's charge, range, locks and location, and let them pre-heat the cabin, lock up or start charging when you allow it.";
 
 const groupIcons: Record<string, string> = {
   status: "🚗",
@@ -16,7 +16,7 @@ const groupIcons: Record<string, string> = {
 };
 
 const examples = [
-  { icon: "🔋", q: "How much charge have I got, and is it plugged in?", tools: ["get_vehicle_status"] },
+  { icon: "🔋", q: "How much charge has the EV6 got, and is it plugged in?", tools: ["get_vehicle_status"] },
   { icon: "🥶", q: "It's freezing. Warm the car to 21° with the windscreen defrost on.", tools: ["start_climate"] },
   { icon: "🔒", q: "Did I lock the car? Lock it if not.", tools: ["get_vehicle_status", "lock_vehicle"] },
   { icon: "📍", q: "Where did I park?", tools: ["get_vehicle_location"] },
@@ -24,7 +24,7 @@ const examples = [
   { icon: "⚡", q: "How much energy went on heating versus driving this week?", tools: ["get_energy_usage"] },
 ];
 
-const cars = ["Hyundai Bluelink", "Kia Connect", "Genesis Connect", "Plug-in hybrids", "EVs", "Petrol & hybrid", "Europe & UK", "USA & Canada", "Australia"];
+const cars = ["Hyundai Bluelink", "Kia Connect (UVO)", "Genesis Connect", "Plug-in hybrids", "EVs", "Petrol & hybrid", "Europe & UK", "USA & Canada", "Australia"];
 const clients = ["Claude Code", "Claude Desktop", "VS Code", "Cursor", "Codex", "Any MCP client"];
 
 const raw = GITHUB.replace("github.com", "raw.githubusercontent.com");
@@ -32,6 +32,7 @@ const composeSnippet = `curl -fsSLO ${raw}/main/compose.yaml
 curl -fsSL ${raw}/main/example.env -o .env
 # set BLUELINK_USERNAME, BLUELINK_PASSWORD,
 # BLUELINK_PIN and MCP_AUTH_TOKEN in .env
+# (and BLUELINK_BRAND=kia for a Kia)
 docker compose up -d`;
 const connectSnippet = `claude mcp add --transport http bluelink \\
   http://<docker-host>:8080/mcp \\
@@ -139,9 +140,9 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
         <div class="wrap hero-grid">
           <div class="hero-copy">
             <p class="eyebrow"><span class="dot"></span> Open source · MIT · Model Context Protocol</p>
-            <h1>Talk to your <span class="grad">Hyundai.</span></h1>
+            <h1>Talk to your <span class="grad">Hyundai or&nbsp;Kia.</span></h1>
             <p class="lede">
-              bluelink-mcp connects Claude and other AI assistants to Hyundai Bluelink. Ask about charge, range, locks and where you
+              bluelink-mcp connects Claude and other AI assistants to Hyundai Bluelink and Kia Connect. Ask about charge, range, locks and where you
               parked in plain English, and let the assistant warm the cabin, lock up or start charging when you allow it.
             </p>
             <div class="cta">
@@ -194,7 +195,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
           <p class="kicker">Ask anything</p>
           <h2>Your car, in plain English.</h2>
           <p>
-            The assistant picks the right tools, asks Bluelink and explains what it found. No opening the app, waiting for it to
+            The assistant picks the right tools, asks Bluelink or Kia Connect and explains what it found. No opening the app, waiting for it to
             load and tapping through screens.
           </p>
         </div>
@@ -261,8 +262,8 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
             </p>
             <ul class="checks">
               <li><strong>Read-only out of the box.</strong> Commands and unlocking are two separate switches.</li>
-              <li><strong>Kind to your car.</strong> Status comes from Bluelink, and waking the car for live data is rate limited to spare its 12V battery.</li>
-              <li><strong>Kind to your account.</strong> The login is cached, so Bluelink doesn't see a login for every question.</li>
+              <li><strong>Kind to your car.</strong> Status comes from the car maker's servers, and waking the car for live data is rate limited to spare its 12V battery.</li>
+              <li><strong>Kind to your account.</strong> The login is cached, so the car maker doesn't see a login for every question.</li>
               <li><strong>Bearer-token auth</strong>, a Host allow-list and a non-root container.</li>
             </ul>
             <a class="link" href="/docs/security/">Read the security model →</a>
@@ -320,8 +321,8 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
             <span class="num">1</span>
             <h3>Check the app</h3>
             <p>
-              Make sure you can log in to the <strong>Bluelink app</strong> and see your car. You'll need the same email, password
-              and <strong>PIN</strong>.
+              Make sure you can log in to the <strong>Bluelink</strong> or <strong>Kia Connect</strong> app and see your car. You'll need
+              the same email, password and <strong>PIN</strong>. For a Kia, also set <code>BLUELINK_BRAND=kia</code>.
             </p>
           </li>
           <li>
@@ -368,7 +369,8 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
         </div>
         <p>
           MIT © Matt Oddie. bluelink-mcp is an independent community project. It is not affiliated with or endorsed by Hyundai Motor
-          Company, Kia Corporation or Genesis. Hyundai, Bluelink, Kia and Genesis are trademarks of their respective owners.
+          Company, Kia Corporation or Genesis. Hyundai, Bluelink, Kia, Kia Connect, UVO and Genesis are trademarks of their respective
+          owners.
         </p>
       </div>
     </footer>

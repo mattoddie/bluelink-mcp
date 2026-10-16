@@ -19,7 +19,7 @@ RUN if [ -n "$VERSION" ]; then uv version --frozen "$VERSION"; fi \
 
 FROM python:3.14-slim-bookworm
 LABEL org.opencontainers.image.title="bluelink-mcp" \
-      org.opencontainers.image.description="MCP server for Hyundai Bluelink" \
+      org.opencontainers.image.description="MCP server for Hyundai Bluelink and Kia Connect" \
       org.opencontainers.image.source="https://github.com/mattoddie/bluelink-mcp" \
       org.opencontainers.image.documentation="https://bluelink-mcp.mattoddie.dev/docs/" \
       org.opencontainers.image.licenses="MIT"

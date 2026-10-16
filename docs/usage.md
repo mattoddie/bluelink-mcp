@@ -1,6 +1,6 @@
 # Using bluelink-mcp
 
-Ask about your car in plain language. The assistant picks the tools; you don't need to name them.
+Ask about your car in plain language. The assistant picks the tools; you don't need to name them. It works the same for a Hyundai, a Kia or a Genesis.
 
 - [Example questions](#example-questions)
 - [Cached and live data](#cached-and-live-data)
@@ -18,6 +18,7 @@ Ask about your car in plain language. The assistant picks the tools; you don't n
 - *"Is it plugged in, and when will it be full?"*
 - *"Any warnings? Tyres, washer fluid, 12V battery?"*
 - *"Did I leave a window open?"*
+- *"Is the EV6 charged enough to get to Leeds and back?"*
 
 **Where and how far**
 
@@ -30,6 +31,7 @@ Ask about your car in plain language. The assistant picks the tools; you don't n
 
 - *"Warm the car to 22 degrees with the windscreen defrost on for 15 minutes."*
 - *"Heat the steering wheel and the driver's seat too."*
+- *"Set the Niro's charge limit to 80% for home charging."*
 - *"Lock the car."*
 - *"Start charging now."* / *"Stop charging."*
 - *"Flash the lights, I can't find it in the car park."*
@@ -88,4 +90,4 @@ The status's `schedule` section shows the departure times and off-peak window se
 
 ## Several cars
 
-If your account has more than one car, pass `vehicle` with its name (as shown in the app), VIN or ID. Part of the name works too, as long as only one car matches, except for `unlock_vehicle`, which needs the exact name, VIN or ID when there are several cars. With one car you can leave it out. Ask *"Which cars do I have?"* to see them.
+If your account has more than one car, such as a Kona and an Ioniq 5, or a Sportage and an EV9, pass `vehicle` with its name (as shown in the app), VIN or ID. Part of the name works too, as long as only one car matches, except for `unlock_vehicle`, which needs the exact name, VIN or ID when there are several cars. With one car you can leave it out. Ask *"Which cars do I have?"* to see them.

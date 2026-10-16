@@ -12,7 +12,7 @@ bluelink-mcp can find, lock, unlock and pre-condition a real car. This page expl
 
 | Asset | Risk if exposed |
 |---|---|
-| Your Bluelink password and PIN | Full control of the car through the official app, from anywhere |
+| Your Bluelink or Kia Connect password and PIN | Full control of the car through the official app, from anywhere |
 | The token cache (`token.json`) | A working Bluelink session, plus your password and PIN |
 | The car's location | Where you live, work and park |
 | Remote commands | Unlocking the car; draining the battery with climate; stopping a charge you needed |
@@ -39,7 +39,7 @@ To limit the impact:
 - Keep commands off if you only want to ask questions.
 - Keep unlock off.
 - Don't auto-approve command tools in your client. Let it ask each time.
-- Use a separate Bluelink account shared from the app, so you can revoke its access without changing your own password.
+- Use a separate Bluelink or Kia Connect account shared from the app, so you can revoke its access without changing your own password.
 
 ## Recommended setups
 
@@ -56,6 +56,6 @@ To limit the impact:
 - [ ] The HTTP port isn't reachable from the internet, or is behind TLS
 - [ ] `BLUELINK_ALLOW_UNLOCK` is off unless you need it
 - [ ] Your client asks before running command tools
-- [ ] You know how to change your Bluelink password if something leaks
+- [ ] You know how to change your Bluelink or Kia Connect password if something leaks
 
 To report a vulnerability in bluelink-mcp, see the [security policy](../SECURITY.md).
