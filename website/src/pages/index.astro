@@ -84,34 +84,55 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
 
     <main id="main">
       <!-- Hero -->
-      <section class="hero">
-        <svg class="mesh" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <section class="hero scene">
+        <svg class="scene-sky" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs>
-            <linearGradient id="link" x1="0" x2="1">
-              <stop offset="0" stop-color="#2563eb" />
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#060a10" />
+              <stop offset="0.7" stop-color="#0b1a2e" />
+              <stop offset="1" stop-color="#12304a" />
+            </linearGradient>
+          </defs>
+          <rect width="1440" height="900" fill="url(#sky)" />
+          <g class="stars" fill="#e8eef5">
+            <circle cx="120" cy="330" r="1.6" /><circle cx="380" cy="270" r="1.4" /><circle cx="560" cy="360" r="1.8" />
+            <circle cx="260" cy="120" r="1.2" /><circle cx="700" cy="90" r="1.3" /><circle cx="760" cy="470" r="1.5" />
+          </g>
+        </svg>
+        <svg class="scene-art" viewBox="0 500 1440 400" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <defs>
+            <linearGradient id="car-body" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#1d4ed8" />
               <stop offset="0.6" stop-color="#0ea5e9" />
               <stop offset="1" stop-color="#10b981" />
             </linearGradient>
+            <radialGradient id="cabin-glow" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0" stop-color="#fbbf24" stop-opacity="0.35" />
+              <stop offset="1" stop-color="#fbbf24" stop-opacity="0" />
+            </radialGradient>
           </defs>
-          <!-- Winding roads, with pulses of data travelling along them. -->
-          <g class="links">
-            <path d="M-20 560 C180 520 260 380 460 420 S760 560 920 420 S1120 300 1240 340" />
-            <path d="M120 120 C300 180 360 300 560 260 S860 120 1060 180" />
-            <path d="M460 420 C500 520 600 600 700 720" />
-            <path d="M920 420 C960 300 1000 200 1060 180" />
-          </g>
-          <g class="pulses">
-            <path d="M-20 560 C180 520 260 380 460 420 S760 560 920 420 S1120 300 1240 340" />
-            <path d="M120 120 C300 180 360 300 560 260 S860 120 1060 180" />
-            <path d="M920 420 C960 300 1000 200 1060 180" />
-          </g>
-          <!-- Cars and chargers along the way. -->
-          <g class="nodes">
-            <rect x="452" y="412" width="16" height="16" rx="8" /><rect x="912" y="412" width="16" height="16" rx="8" />
-            <rect x="1052" y="172" width="16" height="16" rx="8" /><rect x="554" y="254" width="12" height="12" rx="6" />
-            <rect x="200" y="486" width="12" height="12" rx="6" /><rect x="300" y="194" width="10" height="10" rx="5" />
-            <rect x="760" y="208" width="10" height="10" rx="5" /><rect x="640" y="600" width="10" height="10" rx="5" />
-            <rect x="1160" y="318" width="10" height="10" rx="5" />
+          <!-- A house with a lit window and a wall charger -->
+          <path d="M40 600 L170 515 L300 600 Z" fill="#0a1626" />
+          <rect x="60" y="600" width="220" height="160" fill="#0d1d33" />
+          <rect x="95" y="640" width="48" height="42" fill="#fbbf24" opacity="0.55" />
+          <rect x="190" y="640" width="52" height="120" fill="#09121f" />
+          <rect x="0" y="760" width="1440" height="140" fill="#0c1a2b" />
+          <path d="M430 900 L560 760 H1000 L1130 900 Z" fill="#132739" />
+          <ellipse class="glow" cx="740" cy="700" rx="330" ry="150" fill="url(#cabin-glow)" />
+          <ellipse cx="740" cy="830" rx="300" ry="18" fill="rgba(0,0,0,0.55)" />
+          <path class="cable" d="M318 700 C 350 700, 390 772, 472 786" fill="none" stroke="#34d399" stroke-width="4" stroke-dasharray="5 7" />
+          <rect x="300" y="680" width="20" height="30" rx="4" fill="#132739" stroke="#34d399" stroke-width="2" />
+          <!-- The car -->
+          <g transform="translate(190 60)">
+            <path d="M270 742 V694 Q270 674 290 671 L352 662 L418 600 Q428 592 446 592 H636 Q654 592 664 604 L708 662 L760 671 Q780 674 780 694 V742 Z" fill="url(#car-body)" />
+            <path d="M440 654 L470 618 H540 V654 Z M552 618 H624 Q632 618 638 625 L658 654 H552 Z" fill="rgba(232,238,245,0.85)" />
+            <path class="frost" d="M440 654 L470 618 H540 V654 Z M552 618 H624 Q632 618 638 625 L658 654 H552 Z" fill="#dbeafe" />
+            <g fill="#060a10" stroke="#e8eef5" stroke-width="5"><circle cx="370" cy="746" r="36" /><circle cx="680" cy="746" r="36" /></g>
+            <g fill="#93a3b5"><circle cx="370" cy="746" r="12" /><circle cx="680" cy="746" r="12" /></g>
+            <rect x="766" y="686" width="14" height="10" rx="3" fill="#fde68a" />
+            <g class="heat" fill="none" stroke="#fbbf24" stroke-width="4" stroke-linecap="round">
+              <path d="M500 580 q-9 -12 0 -24" /><path d="M526 580 q-9 -12 0 -24" /><path d="M552 580 q-9 -12 0 -24" /><path d="M578 580 q-9 -12 0 -24" />
+            </g>
           </g>
         </svg>
 
@@ -126,6 +147,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
             <div class="cta">
               <a class="btn primary" href="/docs/getting-started/">Get started <span aria-hidden="true">→</span></a>
               <a class="btn ghost" href={GITHUB}>Star on GitHub</a>
+              <span class="charge" aria-hidden="true"><i><b></b></i><span class="charge-off">--</span><span class="charge-on">80%</span></span>
             </div>
             <div class="pull">
               <code>docker pull ghcr.io/mattoddie/bluelink-mcp</code>
@@ -142,7 +164,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
               </div>
               <div class="msg bot" data-step="2">
                 Charging finished at 06:10: you're at <mark>100%</mark>, with <mark>34 miles</mark> of electric range and
-                <mark>430 miles</mark> in total. It's <mark>-2 °C</mark> outside, the doors are locked and the windows are closed.
+                <mark>430 miles</mark> in total. It's <mark>-2 °C</mark> outside, the doors are locked and the windscreen is frosted.
                 <br /><br />Want me to warm it up and defrost the windscreen before you go?
               </div>
               <div class="msg user" data-step="3">Yes please, 21 degrees.</div>
@@ -365,31 +387,49 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
         });
       }
 
-      // Play the example conversation once it scrolls into view.
+      // Play the example conversation when the hero is on screen, and loop it. Steps also
+      // switch the scene: the status reply fills the charge, the climate reply warms the car.
+      const hero = document.querySelector<HTMLElement>(".hero.scene");
       const chat = document.getElementById("chat");
       const steps = chat ? [...chat.querySelectorAll<HTMLElement>("[data-step]")] : [];
+      const sceneAt: Record<number, string> = { 2: "status-on", 5: "heat-on" };
       const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (chat && !reduce) {
+      if (hero && chat && reduce) {
+        hero.classList.add(...Object.values(sceneAt));
+      } else if (hero && chat) {
         chat.classList.add("animate");
         const delays = [300, 900, 1900, 1900, 900, 1700];
+        let timers: number[] = [];
+        let visible = false;
+        let running = false;
+        const reset = () => {
+          timers.forEach(clearTimeout);
+          timers = [];
+          steps.forEach((el) => el.classList.remove("shown"));
+          chat.querySelectorAll(".call").forEach((c) => c.classList.remove("done"));
+          hero.classList.remove(...Object.values(sceneAt));
+        };
         const play = () => {
+          running = true;
+          reset();
           let t = 0;
           steps.forEach((el, i) => {
             t += delays[i] ?? 1000;
-            setTimeout(() => {
+            timers.push(window.setTimeout(() => {
               el.classList.add("shown");
+              if (sceneAt[i]) hero.classList.add(sceneAt[i]);
               for (const [j, c] of [...el.querySelectorAll<HTMLElement>(".call")].entries()) {
-                setTimeout(() => c.classList.add("done"), 450 + j * 380);
+                timers.push(window.setTimeout(() => c.classList.add("done"), 450 + j * 380));
               }
-            }, t);
+            }, t));
           });
+          // Hold the finished scene for a while, then start again if the hero is still in view.
+          timers.push(window.setTimeout(() => (visible ? play() : (running = false)), t + 7000));
         };
-        new IntersectionObserver((entries, obs) => {
-          if (entries.some((e) => e.isIntersecting)) {
-            play();
-            obs.disconnect();
-          }
-        }, { threshold: 0.35 }).observe(chat);
+        new IntersectionObserver((entries) => {
+          visible = entries.some((e) => e.isIntersecting);
+          if (visible && !running) play();
+        }, { threshold: 0.2 }).observe(chat);
       }
     </script>
 
@@ -475,14 +515,31 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
         mask-image: radial-gradient(60% 60% at 50% 40%, #000 30%, transparent 80%);
         opacity: 0.35;
       }
-      .mesh { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.55; }
-      .mesh .links path { fill: none; stroke: url(#link); stroke-width: 1.2; stroke-opacity: 0.35; }
-      .mesh .pulses path { fill: none; stroke: #bae6fd; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 6 600; animation: pulse 7s linear infinite; }
-      .mesh .pulses path:nth-child(2) { animation-delay: -2.5s; animation-duration: 9s; }
-      .mesh .pulses path:nth-child(3) { animation-delay: -4s; animation-duration: 5s; }
-      .mesh .nodes rect { fill: #bae6fd; filter: drop-shadow(0 0 6px #38bdf8); animation: blink 4s ease-in-out infinite; }
-      .mesh .nodes rect:nth-child(3n) { animation-delay: -1.3s; }
-      .mesh .nodes rect:nth-child(3n + 1) { animation-delay: -2.6s; }
+      /* The illustrated scene behind the hero; the chat steps switch its states. */
+      .hero.scene { padding-bottom: 300px; }
+      .hero.scene::before { display: none; }
+      /* Ground that runs past the edges of the fixed-width scene on wide screens. */
+      .hero.scene::after { inset: auto 0 0 0; height: 140px; background: #0c1a2b; mask-image: none; opacity: 1; z-index: -2; }
+      .scene-sky { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -3; }
+      .scene-sky .stars circle { animation: blink 3s ease-in-out infinite; }
+      .scene-sky .stars circle:nth-child(2n) { animation-delay: -1.5s; }
+      .scene-art { position: absolute; left: 50%; bottom: 0; width: 1440px; height: 400px; transform: translateX(-50%); z-index: -1; }
+      .scene-art .frost { opacity: 0.9; transition: opacity 1.6s ease; }
+      .scene-art .glow, .scene-art .heat { opacity: 0; transition: opacity 1s ease; }
+      .scene-art .heat path { animation: rise 1.6s ease-in-out infinite; }
+      .scene-art .heat path:nth-child(2) { animation-delay: 0.25s; }
+      .scene-art .heat path:nth-child(3) { animation-delay: 0.5s; }
+      .scene-art .heat path:nth-child(4) { animation-delay: 0.75s; }
+      .hero.heat-on .scene-art .frost { opacity: 0; }
+      .hero.heat-on .scene-art .glow, .hero.heat-on .scene-art .heat { opacity: 1; }
+      @keyframes rise { 0%, 100% { transform: translateY(0); opacity: 0.4; } 50% { transform: translateY(-8px); opacity: 1; } }
+      .hero.scene .hero-grid { grid-template-columns: minmax(0, 1fr) 440px; align-items: start; }
+      .charge { display: inline-flex; align-items: center; gap: 10px; padding: 0 14px; min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: rgba(6, 10, 16, 0.55); font: 500 14px var(--mono); }
+      .charge i { width: 46px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+      .charge b { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #1d4ed8, #10b981); transition: width 1.2s ease; }
+      .charge .charge-on, .hero.status-on .charge .charge-off { display: none; }
+      .hero.status-on .charge .charge-on { display: inline; }
+      .hero.status-on .charge b { width: 80%; }
       @keyframes pulse { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
       @keyframes blink { 50% { opacity: 0.45; } }
 
@@ -522,15 +579,15 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
 
       /* Chat demo */
       .chat {
-        border-radius: 20px; border: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(14, 24, 38, 0.9), rgba(8, 14, 22, 0.92));
+        border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(10, 18, 30, 0.84); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 0 80px -20px rgba(14, 165, 233, 0.32);
         overflow: hidden;
       }
       .chat-bar { display: flex; align-items: center; gap: 7px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
       .chat-bar span { width: 11px; height: 11px; border-radius: 50%; background: #243244; }
       .chat-bar em { margin-left: auto; font-style: normal; color: var(--muted); font-size: 12.5px; font-family: var(--mono); }
-      .chat-body { padding: 22px; display: flex; flex-direction: column; gap: 14px; min-height: 490px; }
+      .chat-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 470px; }
       .msg { max-width: 88%; padding: 12px 15px; border-radius: 14px; font-size: 14.5px; line-height: 1.55; }
       .msg.user { align-self: flex-end; background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border-bottom-right-radius: 4px; }
       .msg.bot { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
@@ -667,6 +724,11 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
         .examples { grid-template-columns: repeat(2, 1fr); }
         .steps { grid-template-columns: minmax(0, 1fr); }
         .chat-body { min-height: 0; }
+        .hero.scene { min-height: 0; padding-bottom: 0; display: flex; flex-direction: column; }
+        .hero.scene .scene-art { order: 2; }
+        .hero.scene::after { display: none; }
+        .hero.scene .hero-grid { grid-template-columns: minmax(0, 1fr); }
+        .scene-art { position: relative; left: auto; bottom: auto; transform: none; display: block; width: 100%; height: 245px; margin-top: 24px; }
       }
       @media (max-width: 640px) {
         .wrap { width: calc(100% - 32px); }
