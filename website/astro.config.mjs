@@ -54,7 +54,7 @@ export default defineConfig({
         },
         {
           label: "Project",
-          items: docs("docs/contributing", "docs/development", "docs/releasing", "docs/security-policy", "docs/changelog"),
+          items: [...docs("docs/contributing", "docs/development", "docs/releasing", "docs/security-policy", "docs/changelog"), { label: "All MCP servers", link: "https://mcp.mattoddie.dev/" }],
         },
       ].filter((group) => !("items" in group) || group.items.length > 0),
     }),
