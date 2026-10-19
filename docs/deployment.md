@@ -89,6 +89,7 @@ Then point clients at `https://bluelink.example.com/mcp`.
 
 - Keep `BLUELINK_ALLOW_UNLOCK` off unless you really need it. See [Security](security.md).
 - Publish the port only on the interface you need, for example `127.0.0.1:8080:8080` behind a local proxy.
+- Pass secrets as files rather than environment variables, with Compose `secrets:` and `BLUELINK_PASSWORD_FILE`, `BLUELINK_PIN_FILE` and `MCP_AUTH_TOKEN_FILE`.
 - Add `read_only: true` and `cap_drop: [ALL]` to the Compose service. The server writes only to `/data`.
 - Keep `.env` readable only by you: `chmod 600 .env`.
 

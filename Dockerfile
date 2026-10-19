@@ -34,6 +34,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
 USER app
 VOLUME /data
 EXPOSE 8080
+# Checks /health on MCP_HTTP_HOST and MCP_HTTP_PORT (loopback for 0.0.0.0); passes in stdio mode.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["python", "-c", "import os,sys,urllib.request; os.environ.get('MCP_TRANSPORT')=='stdio' and sys.exit(0); urllib.request.urlopen('http://127.0.0.1:'+os.environ['MCP_HTTP_PORT']+'/health')"]
+  CMD ["bluelink-mcp", "healthcheck"]
 ENTRYPOINT ["bluelink-mcp"]

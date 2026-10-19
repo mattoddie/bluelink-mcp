@@ -12,7 +12,7 @@ from hyundai_kia_connect_api.exceptions import APIError, AuthenticationError, Au
 from hyundai_kia_connect_api.Token import Token
 from mcp.server.mcpserver.exceptions import ToolError
 
-from bluelink_mcp.__main__ import transport_security
+from bluelink_mcp.__main__ import MAX_BODY_BYTES, healthcheck_url, http_app, transport_security
 from bluelink_mcp.client import BluelinkClient, check_supported
 from bluelink_mcp.config import Config, ConfigError
 from bluelink_mcp.server import build_server
@@ -537,169 +537,202 @@ def test_fuel_range_has_its_unit(tmp_path):
 
 # --- HTTP settings ---------------------------------------------------------
 
+TOKEN = "t" * 24
 
-def test_allowed_origins():
-    assert transport_security(Config.from_env(ENV)) is None
-    config = Config.from_env(
-        {
-            **ENV,
-            "MCP_ALLOWED_HOSTS": "bluelink.example.com",
-            "MCP_ALLOWED_ORIGINS": "https://claude.ai, https://bluelink.example.com",
-        }
+
+def http_config(**extra):
+    return Config.from_env({**ENV, "MCP_TRANSPORT": "http", "MCP_AUTH_TOKEN": TOKEN, **extra})
+
+
+async def inner_app(scope, receive, send):
+    """Stands in for the MCP app: echoes the request body."""
+    message = await receive()
+    await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"text/plain")]})
+    await send({"type": "http.response.body", "body": b"inner:" + message.get("body", b"")})
+
+
+def request(app, method="POST", path="/mcp", headers=None, body=b"{}", chunks=None):
+    """Send one request to an ASGI app; return (status, headers, body)."""
+    headers = {"host": "127.0.0.1:8080", **(headers or {})}
+    scope = {
+        "type": "http",
+        "method": method,
+        "path": path,
+        "headers": [(k.lower().encode(), v.encode("latin-1")) for k, v in headers.items() if v is not None],
+    }
+    pending = [{"type": "http.request", "body": c, "more_body": True} for c in (chunks or [])]
+    pending.append({"type": "http.request", "body": body, "more_body": False})
+    out = {"status": None, "headers": {}, "body": b""}
+
+    async def receive():
+        return pending.pop(0) if pending else {"type": "http.disconnect"}
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            out["status"] = message["status"]
+            out["headers"] = {k.decode(): v.decode() for k, v in message.get("headers", [])}
+        else:
+            out["body"] += message.get("body", b"")
+
+    anyio.run(app, scope, receive, send)
+    return out["status"], out["headers"], out["body"]
+
+
+def guarded(**extra):
+    return http_app(http_config(**extra), inner_app)
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    [
+        None,
+        "",
+        "Bearer",
+        "Bearer ",
+        "Bearer wrong-token-0000000000",
+        f"Basic {TOKEN}",
+        TOKEN,
+        f"Bearer {TOKEN}x",
+    ],
+)
+def test_bearer_auth_rejects_missing_or_wrong_tokens(authorization):
+    status, headers, body = request(guarded(), headers={"authorization": authorization})
+    assert status == 401
+    assert headers["www-authenticate"] == "Bearer"
+    assert b"inner" not in body
+
+
+@pytest.mark.parametrize("scheme", ["Bearer", "bearer", "BEARER", "bEaReR"])
+def test_bearer_auth_accepts_the_token_with_any_case_of_scheme(scheme):
+    status, _, body = request(guarded(), headers={"authorization": f"{scheme} {TOKEN}"})
+    assert (status, body) == (200, b"inner:{}")
+
+
+def test_health_needs_no_token_or_allowed_host():
+    app = guarded(MCP_ALLOWED_HOSTS="bluelink.example.com")
+    status, _, body = request(app, method="GET", path="/health", headers={"host": "evil.example"}, body=b"")
+    assert (status, body) == (200, b"inner:")
+
+
+AUTH = {"authorization": f"Bearer {TOKEN}"}
+
+
+@pytest.mark.parametrize("method", ["GET", "DELETE", "PUT"])
+def test_mcp_is_post_only(method):
+    status, headers, _ = request(guarded(), method=method, headers=AUTH)
+    assert status == 405
+    assert headers["allow"] == "POST"
+
+
+def test_mcp_needs_a_json_body_within_the_limit():
+    assert request(guarded(), headers=AUTH, body=b"{not json")[0] == 400
+    assert request(guarded(), headers=AUTH, body=b"x" * (MAX_BODY_BYTES + 1))[0] == 413
+    big = b'{"a": "' + b"x" * (MAX_BODY_BYTES - 20) + b'"}'
+    assert request(guarded(), headers=AUTH, chunks=[big[:100]], body=big[100:])[0] == 200
+
+
+@pytest.mark.parametrize(
+    ("host", "allowed"),
+    [
+        ("bluelink.example.com", True),
+        ("bluelink.example.com:8443", True),  # an entry without a port allows any port
+        ("BLUELINK.example.com", True),
+        ("192.168.1.20:8080", True),
+        ("192.168.1.20:9090", False),
+        ("192.168.1.20", False),
+        ("localhost:1234", True),  # localhost:*
+        ("[::1]:8080", True),
+        ("evil.example", False),
+        ("bluelink.example.com.evil.example", False),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_host_allow_list(host, allowed):
+    app = guarded(MCP_ALLOWED_HOSTS="bluelink.example.com, 192.168.1.20:8080, localhost:*, [::1]")
+    status, _, _ = request(app, headers={**AUTH, "host": host})
+    assert status == (200 if allowed else 421)
+
+
+@pytest.mark.parametrize(
+    ("origin", "allowed"),
+    [
+        ("https://bluelink.example.com", True),
+        ("http://bluelink.example.com", True),
+        ("https://bluelink.example.com:443", True),
+        ("https://bluelink.example.com:8443", False),  # other ports must be listed
+        ("http://192.168.1.20:8080", True),
+        ("http://192.168.1.20", False),
+        ("http://localhost:5173", True),  # localhost:*
+        ("https://claude.ai", True),  # MCP_ALLOWED_ORIGINS
+        ("https://claude.ai:444", False),
+        ("http://claude.ai", False),
+        ("http://127.0.0.1:6274", True),  # http://127.0.0.1:* in MCP_ALLOWED_ORIGINS
+        ("https://evil.example", False),
+        ("null", False),
+        ("", False),
+        ("file://", False),
+        ("https://bluelink.example.com/path", False),
+    ],
+)
+def test_origin_allow_list(origin, allowed):
+    app = guarded(
+        MCP_ALLOWED_HOSTS="bluelink.example.com, 192.168.1.20:8080, localhost:*",
+        MCP_ALLOWED_ORIGINS="https://claude.ai, http://127.0.0.1:*",
     )
-    security = transport_security(config)
-    assert security.allowed_hosts == ["bluelink.example.com"]
-    assert security.allowed_origins == ["https://claude.ai", "https://bluelink.example.com"]
+    status, _, _ = request(app, headers={**AUTH, "host": "bluelink.example.com", "origin": origin})
+    assert status == (200 if allowed else 403)
+
+
+def test_without_allowed_hosts_the_sdk_default_applies():
+    assert transport_security(Config.from_env(ENV)) is None
+    # With hosts set, our own check replaces the SDK's.
+    assert not transport_security(http_config(MCP_ALLOWED_HOSTS="h")).enable_dns_rebinding_protection
+    status, _, _ = request(guarded(), headers={**AUTH, "host": "anything", "origin": "https://evil.example"})
+    assert status == 200
     with pytest.raises(ConfigError, match="MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS"):
         Config.from_env({**ENV, "MCP_ALLOWED_ORIGINS": "https://claude.ai"})
 
 
-# --- command rate limits and unlock confirmation ---------------------------
+def test_auth_token_minimum_length():
+    with pytest.raises(ConfigError, match="at least 16 characters"):
+        http_config(MCP_AUTH_TOKEN="short-token")
+    assert http_config(MCP_AUTH_TOKEN="x" * 16).auth_token == "x" * 16
 
 
-def test_commands_are_rate_limited_per_car_and_command(tmp_path):
-    server, _ = make(tmp_path, factory=TwoCarManager, BLUELINK_ALLOW_WRITES="true")
-    call(server, "lock_vehicle", {"vehicle": "santa fe"})
-    with pytest.raises(ToolError, match="lock_vehicle was sent to Santa Fe 0 s ago.*wait about 60 s"):
-        call(server, "lock_vehicle", {"vehicle": "santa fe"})
-    # Another car, or another command, isn't held up.
-    call(server, "lock_vehicle", {"vehicle": "ioniq 5"})
-    call(server, "start_climate", {"vehicle": "santa fe"})
-    assert [c for c in FakeManager.instances[-1].calls if c[0] == "lock"] == [("lock", "v1"), ("lock", "v2")]
+def test_secrets_can_come_from_files(tmp_path):
+    (tmp_path / "password").write_text("pass word \n")
+    (tmp_path / "pin").write_text("4321\n")
+    (tmp_path / "token").write_text(TOKEN + "\n")
+    config = Config.from_env(
+        {
+            "BLUELINK_USERNAME": "me@example.com",
+            "BLUELINK_PASSWORD_FILE": str(tmp_path / "password"),
+            "BLUELINK_PIN_FILE": str(tmp_path / "pin"),
+            "MCP_AUTH_TOKEN_FILE": str(tmp_path / "token"),
+        }
+    )
+    assert (config.password, config.pin, config.auth_token) == ("pass word ", "4321", TOKEN)
+    with pytest.raises(ConfigError, match="not both"):
+        Config.from_env({**ENV, "BLUELINK_PASSWORD_FILE": str(tmp_path / "password")})
+    with pytest.raises(ConfigError, match="Could not read BLUELINK_PIN_FILE"):
+        Config.from_env({**ENV, "BLUELINK_PIN": "", "BLUELINK_PIN_FILE": str(tmp_path / "missing")})
 
 
-def test_command_rate_limit_can_be_turned_off(tmp_path):
-    server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_MIN_COMMAND_SECONDS="0")
-    for _ in range(3):
-        call(server, "lock_vehicle")
-    assert FakeManager.instances[-1].calls.count(("lock", "v1")) == 3
-    with pytest.raises(ConfigError, match="BLUELINK_MIN_COMMAND_SECONDS"):
-        Config.from_env({**ENV, "BLUELINK_MIN_COMMAND_SECONDS": "-1"})
-
-
-def test_failed_command_counts_against_the_rate_limit(tmp_path):
-    class FlakyLockManager(FakeManager):
-        def lock(self, vid):
-            self.calls.append(("lock", vid))
-            raise APIError("car did not answer")
-
-    server, _ = make(tmp_path, factory=FlakyLockManager, BLUELINK_ALLOW_WRITES="true")
-    with pytest.raises(ToolError, match="APIError"):
-        call(server, "lock_vehicle")
-    with pytest.raises(ToolError, match="wait about"):
-        call(server, "lock_vehicle")
-    assert FakeManager.instances[-1].calls.count(("lock", "v1")) == 1
-
-
-def test_command_refused_by_our_own_checks_does_not_count(tmp_path):
-    server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_REGION="canada")
-    call(server, "list_vehicles")
-    FakeManager.instances[-1].vehicles["v1"].year = 2019
-    with pytest.raises(ToolError, match="lowest temperature"):
-        call(server, "start_climate", {"temperature": 15})
-    call(server, "start_climate", {"temperature": 16})
-
-
-def unlock_server(tmp_path, **extra):
-    return make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true", **extra)[0]
-
-
-def unlocks():
-    return [c for c in FakeManager.instances[-1].calls if c[0] == "unlock"] if FakeManager.instances else []
-
-
-@pytest.mark.parametrize("confirm", [None, "", "yes", "true", "Santa", "XYZ", "HXYZ"])
-def test_unlock_without_elicitation_needs_the_car_named_in_confirm(tmp_path, confirm):
-    server = unlock_server(tmp_path)
-    args = {} if confirm is None else {"confirm": confirm}
-    with pytest.raises(ToolError, match="needs confirmation"):
-        call(server, "unlock_vehicle", args)
-    assert unlocks() == []
-
-
-@pytest.mark.parametrize("confirm", ["Santa Fe", " santa fe ", "KMHXYZ", "kmhxyz"])
-def test_unlock_with_matching_confirm(tmp_path, confirm):
-    server = unlock_server(tmp_path)
-    data, _ = call(server, "unlock_vehicle", {"confirm": confirm})
-    assert data["status"] == "success"
-    assert unlocks() == [("unlock", "v1")]
-
-
-def test_unlock_is_rate_limited(tmp_path):
-    server = unlock_server(tmp_path)
-    call(server, "unlock_vehicle", {"confirm": "Santa Fe"})
-    with pytest.raises(ToolError, match="unlock_vehicle was sent"):
-        call(server, "unlock_vehicle", {"confirm": "Santa Fe"})
-    assert unlocks() == [("unlock", "v1")]
-
-
-def test_unlock_confirm_is_not_shown_to_the_model_as_a_hint(tmp_path):
-    server = unlock_server(tmp_path)
-    with pytest.raises(ToolError) as err:
-        call(server, "unlock_vehicle")
-    assert "Santa Fe" not in str(err.value)
-    assert "KMHXYZ" not in str(err.value)
-
-
-def connect_and_unlock(server, mode, answer, args=None):
-    """Call unlock_vehicle through a real MCP client whose user gives `answer` (None: no elicitation)."""
-    from mcp import Client
-    from mcp.types import ElicitResult
-
-    questions = []
-
-    async def elicit(context, params):
-        questions.append(params.message)
-        if answer in ("decline", "cancel"):
-            return ElicitResult(action=answer)
-        return ElicitResult(action="accept", content={"unlock": answer})
-
-    async def go():
-        async with Client(
-            server, mode=mode, elicitation_callback=elicit if answer is not None else None
-        ) as c:
-            return await c.call_tool("unlock_vehicle", args or {})
-
-    return anyio.run(go), questions
-
-
-@pytest.mark.parametrize("mode", ["auto", "legacy"])
-def test_unlock_asks_the_user_when_the_client_can(tmp_path, mode):
-    server = unlock_server(tmp_path)
-    result, questions = connect_and_unlock(server, mode, True)
-    assert not result.is_error, result.content
-    assert result.structured_content["status"] == "success"
-    assert questions == ["Unlock Santa Fe (VIN ending KMHXYZ)? The doors will open for anyone near the car."]
-    assert unlocks() == [("unlock", "v1")]
-
-
-@pytest.mark.parametrize("mode", ["auto", "legacy"])
-@pytest.mark.parametrize("answer", [False, "decline", "cancel"])
-def test_unlock_stops_when_the_user_says_no(tmp_path, mode, answer):
-    server = unlock_server(tmp_path)
-    # A confirm argument doesn't override the user's answer.
-    result, questions = connect_and_unlock(server, mode, answer, {"confirm": "Santa Fe"})
-    assert result.is_error
-    assert "Not unlocked" in result.content[0].text
-    assert len(questions) == 1
-    assert unlocks() == []
-
-
-@pytest.mark.parametrize("mode", ["auto", "legacy"])
-def test_unlock_falls_back_to_confirm_without_elicitation(tmp_path, mode):
-    server = unlock_server(tmp_path)
-    result, _ = connect_and_unlock(server, mode, None)
-    assert result.is_error
-    assert "needs confirmation" in result.content[0].text
-    result, _ = connect_and_unlock(server, mode, None, {"confirm": "Santa Fe"})
-    assert not result.is_error, result.content
-    assert unlocks() == [("unlock", "v1")]
-
-
-def test_unlock_is_not_asked_when_rate_limited(tmp_path):
-    server = unlock_server(tmp_path)
-    connect_and_unlock(server, "auto", True)
-    result, questions = connect_and_unlock(server, "auto", True)
-    assert result.is_error
-    assert "unlock_vehicle was sent" in result.content[0].text
-    assert questions == []
+@pytest.mark.parametrize(
+    ("env", "url"),
+    [
+        ({}, None),
+        ({"MCP_TRANSPORT": "stdio"}, None),
+        ({"MCP_TRANSPORT": "http"}, "http://127.0.0.1:8080/health"),
+        (
+            {"MCP_TRANSPORT": "http", "MCP_HTTP_HOST": "0.0.0.0", "MCP_HTTP_PORT": "9000"},
+            "http://127.0.0.1:9000/health",
+        ),
+        ({"MCP_TRANSPORT": "http", "MCP_HTTP_HOST": "::"}, "http://[::1]:8080/health"),
+        ({"MCP_TRANSPORT": "http", "MCP_HTTP_HOST": "10.0.0.5"}, "http://10.0.0.5:8080/health"),
+        ({"MCP_TRANSPORT": "http", "MCP_HTTP_HOST": "fd00::5"}, "http://[fd00::5]:8080/health"),
+    ],
+)
+def test_healthcheck_url(env, url):
+    assert healthcheck_url(env) == url

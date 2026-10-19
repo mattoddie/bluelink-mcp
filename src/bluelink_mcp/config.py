@@ -45,6 +45,28 @@ def _int(env: dict[str, str], name: str, default: int) -> int:
         raise ConfigError(f"{name} must be a whole number, not {raw!r}") from None
 
 
+def _secret(env: dict[str, str], name: str) -> str:
+    """A secret from NAME, or from the file NAME_FILE names (for Docker secrets).
+
+    Only the trailing line break of a file is removed, so a password can still end in a space.
+    """
+    file = env.get(f"{name}_FILE", "").strip()
+    if not file:
+        return env.get(name, "")
+    if env.get(name):
+        raise ConfigError(f"Set {name} or {name}_FILE, not both")
+    try:
+        return Path(file).expanduser().read_text().rstrip("\r\n")
+    except OSError as ex:
+        raise ConfigError(
+            f"Could not read {name}_FILE ({file}): {ex.strerror or type(ex).__name__}"
+        ) from None
+
+
+# Shorter bearer tokens could be guessed.
+MIN_AUTH_TOKEN_LENGTH = 16
+
+
 def _list(env: dict[str, str], name: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in env.get(name, "").split(",") if item.strip())
 
@@ -84,9 +106,11 @@ class Config:
         env = dict(os.environ if env is None else env)
 
         username = env.get("BLUELINK_USERNAME", "").strip()
-        password = env.get("BLUELINK_PASSWORD", "")
+        password = _secret(env, "BLUELINK_PASSWORD")
         if not username or not password:
-            raise ConfigError("BLUELINK_USERNAME and BLUELINK_PASSWORD must be set")
+            raise ConfigError(
+                "BLUELINK_USERNAME and BLUELINK_PASSWORD (or BLUELINK_PASSWORD_FILE) must be set"
+            )
 
         region_name = env.get("BLUELINK_REGION", "europe").strip().lower()
         if region_name not in REGIONS:
@@ -120,6 +144,13 @@ class Config:
         if not 0 <= location_precision <= 15:
             raise ConfigError("BLUELINK_LOCATION_PRECISION must be between 0 and 15 decimal places")
 
+        auth_token = _secret(env, "MCP_AUTH_TOKEN").strip()
+        if transport == "http" and auth_token and len(auth_token) < MIN_AUTH_TOKEN_LENGTH:
+            raise ConfigError(
+                f"MCP_AUTH_TOKEN must be at least {MIN_AUTH_TOKEN_LENGTH} characters; "
+                "generate one with: openssl rand -hex 32"
+            )
+
         hosts = _list(env, "MCP_ALLOWED_HOSTS")
         origins = _list(env, "MCP_ALLOWED_ORIGINS")
         if origins and not hosts:
@@ -136,7 +167,7 @@ class Config:
         return cls(
             username=username,
             password=password,
-            pin=env.get("BLUELINK_PIN", "").strip(),
+            pin=_secret(env, "BLUELINK_PIN").strip(),
             region=REGIONS[region_name],
             brand=BRANDS[brand_name],
             language=env.get("BLUELINK_LANGUAGE", "en").strip() or "en",
@@ -153,7 +184,7 @@ class Config:
             transport=transport,
             http_host=env.get("MCP_HTTP_HOST", "127.0.0.1").strip() or "127.0.0.1",
             http_port=_int(env, "MCP_HTTP_PORT", 8080),
-            auth_token=env.get("MCP_AUTH_TOKEN", "").strip(),
+            auth_token=auth_token,
             allowed_hosts=hosts,
             allowed_origins=origins,
         )

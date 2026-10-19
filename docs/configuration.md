@@ -17,8 +17,8 @@ The variables all start with `BLUELINK_`, whatever the brand. For a Kia, use you
 | Variable | Default | Description |
 |---|---|---|
 | `BLUELINK_USERNAME` | (required) | The email address you log in to the Bluelink, Kia Connect or Genesis Connect app with |
-| `BLUELINK_PASSWORD` | (required) | Your app password |
-| `BLUELINK_PIN` | | Your 4-digit app PIN. Europe and Canada need it for remote commands. Reads work without it. |
+| `BLUELINK_PASSWORD` | (required) | Your app password. Or put it in a file and set `BLUELINK_PASSWORD_FILE` to its path. |
+| `BLUELINK_PIN` | | Your 4-digit app PIN. Europe and Canada need it for remote commands. Reads work without it. Or use `BLUELINK_PIN_FILE`. |
 | `BLUELINK_REGION` | `europe` | Which regional service to use. See [Choosing a region](#choosing-a-region). |
 | `BLUELINK_BRAND` | `hyundai` | Which car maker's service to use: `hyundai` (Bluelink), `kia` (Kia Connect, formerly UVO) or `genesis` (Genesis Connect) |
 | `BLUELINK_LANGUAGE` | `en` | Language for the service's responses (Europe only), such as `en`, `de`, `fr`, `nl` |
@@ -79,13 +79,15 @@ The server always uses the password and PIN you configured, so after changing yo
 | `MCP_TRANSPORT` | `stdio`; `http` in the Docker image | `stdio` or `http` (Streamable HTTP) |
 | `MCP_HTTP_HOST` | `127.0.0.1`; `0.0.0.0` in the Docker image | Address to listen on |
 | `MCP_HTTP_PORT` | `8080` | Port to listen on |
-| `MCP_AUTH_TOKEN` | | Bearer token clients must send. **Required** for `http`; the server refuses to start without it. Generate one with `openssl rand -hex 32`. |
-| `MCP_ALLOWED_HOSTS` | | Optional comma-separated allow-list of `Host` header values, for DNS rebinding protection, such as `bluelink.example.com,192.168.1.20:8080` |
-| `MCP_ALLOWED_ORIGINS` | | Optional comma-separated allow-list of `Origin` header values, such as `https://claude.ai`. Needs `MCP_ALLOWED_HOSTS`. |
+| `MCP_AUTH_TOKEN` | | Bearer token clients must send. **Required** for `http`, and at least 16 characters; the server refuses to start otherwise. Generate one with `openssl rand -hex 32`. Or use `MCP_AUTH_TOKEN_FILE`. |
+| `MCP_ALLOWED_HOSTS` | | Optional comma-separated allow-list of `Host` header values, for DNS rebinding protection, such as `bluelink.example.com,192.168.1.20:8080`. An entry without a port matches any port. |
+| `MCP_ALLOWED_ORIGINS` | | Optional comma-separated list of extra `Origin` values browsers may call from, such as `https://claude.ai`. Needs `MCP_ALLOWED_HOSTS`. |
 
-The HTTP server serves the MCP endpoint at `/mcp` and an unauthenticated health check at `/health`.
+The HTTP server serves the MCP endpoint at `/mcp` (`POST` only, with a JSON body of up to 4 MiB) and an unauthenticated health check at `/health`. `bluelink-mcp healthcheck` exits 0 when `/health` answers, for Docker's `HEALTHCHECK`.
 
-With `MCP_ALLOWED_HOSTS` set, requests that carry an `Origin` header (browser-based clients do; command-line and desktop clients usually don't) are rejected with `403` unless the origin is in `MCP_ALLOWED_ORIGINS`. A port wildcard such as `http://localhost:*` is allowed in both lists.
+`BLUELINK_PASSWORD`, `BLUELINK_PIN` and `MCP_AUTH_TOKEN` can each be read from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): set `BLUELINK_PASSWORD_FILE`, `BLUELINK_PIN_FILE` or `MCP_AUTH_TOKEN_FILE` to its path. Set the variable or its `_FILE` version, not both.
+
+With `MCP_ALLOWED_HOSTS` set, requests whose `Host` header isn't on the list are rejected with `421`. Requests that carry an `Origin` header (browser-based clients do; command-line and desktop clients usually don't) are rejected with `403` unless the origin is on an allowed host or listed in `MCP_ALLOWED_ORIGINS`. For origins, a host entry without a port allows only the default port (`https://bluelink.example.com`); list `host:port` for others. An empty or `null` origin is always rejected. A port wildcard such as `localhost:*` or `http://localhost:*` is allowed in both lists.
 
 ## Example configs
 

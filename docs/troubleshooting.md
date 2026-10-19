@@ -12,13 +12,15 @@ Start with the logs: `docker compose logs bluelink-mcp`, or your MCP client's se
 
 | Message | Fix |
 |---|---|
-| `BLUELINK_USERNAME and BLUELINK_PASSWORD must be set` | Set both. With Docker, check `.env` is next to `compose.yaml` and has no quotes around values. |
+| `BLUELINK_USERNAME and BLUELINK_PASSWORD (or BLUELINK_PASSWORD_FILE) must be set` | Set both. With Docker, check `.env` is next to `compose.yaml` and has no quotes around values. |
 | `BLUELINK_REGION must be one of ...` | Use one of the names in [Configuration](configuration.md#choosing-a-region), such as `europe` or `usa`. |
 | `BLUELINK_ALLOW_UNLOCK needs BLUELINK_ALLOW_WRITES=true too` | Turn on writes as well, or turn unlock off. |
 | `BLUELINK_BRAND=... is not supported in BLUELINK_REGION=...` | The library has no service for that brand in that region. Check the [compatibility table](compatibility.md). |
 | `BLUELINK_GEOCODE needs BLUELINK_ALLOW_LOCATION=true too` | Addresses are only looked up for the location tool. Set `BLUELINK_ALLOW_LOCATION=true`, or turn geocoding off. |
 | `MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS too` | Origins are only checked together with hosts. Set `MCP_ALLOWED_HOSTS` as well. |
-| `set MCP_AUTH_TOKEN when using the http transport` | Generate one with `openssl rand -hex 32` and add it to `.env`. |
+| `set MCP_AUTH_TOKEN (or MCP_AUTH_TOKEN_FILE) when using the http transport` | Generate one with `openssl rand -hex 32` and add it to `.env`. |
+| `MCP_AUTH_TOKEN must be at least 16 characters` | Short tokens can be guessed. Generate a new one with `openssl rand -hex 32` and update your clients. |
+| `Set BLUELINK_PASSWORD or BLUELINK_PASSWORD_FILE, not both` | Remove one of them. The same goes for `BLUELINK_PIN` and `MCP_AUTH_TOKEN`. |
 
 ## Login fails
 
@@ -59,7 +61,8 @@ If logins worked before and stopped for everyone at the same time, Hyundai or Ki
 | Symptom | Fix |
 |---|---|
 | `401 unauthorized` | The client isn't sending `Authorization: Bearer <MCP_AUTH_TOKEN>`, or the token doesn't match. |
-| `421` or *"Invalid Host header"* | The request's `Host` isn't in `MCP_ALLOWED_HOSTS`. Add it, including the port if it isn't 80 or 443. |
-| `403` or *"Invalid Origin header"* | The client sends an `Origin` header that isn't in `MCP_ALLOWED_ORIGINS`. Add it, such as `https://claude.ai`. |
+| `421` or *"Host ... is not allowed"* | The request's `Host` isn't in `MCP_ALLOWED_HOSTS`. Add the host name. |
+| `403` or *"Origin ... is not allowed"* | The client sends an `Origin` header that isn't on an allowed host or in `MCP_ALLOWED_ORIGINS`. Add it, such as `https://claude.ai`. |
+| `405 Method not allowed` | `/mcp` only takes `POST`. The server is stateless, so clients don't need `GET` streams or `DELETE`. |
 | Connection refused | Check the container is running and healthy: `docker compose ps`, and `curl http://<docker-host>:8080/health` should print `ok`. |
 | stdio server exits immediately | Run the same command in a terminal to see the error. For Docker, make sure you pass `-i` and not `-t`. |

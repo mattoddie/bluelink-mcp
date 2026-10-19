@@ -83,7 +83,7 @@ Then ask *"How's the car doing?"*
 
 ## Configuration
 
-All settings are environment variables; [`example.env`](example.env) lists and explains them.
+All settings are environment variables; [`example.env`](example.env) lists and explains them. `BLUELINK_PASSWORD`, `BLUELINK_PIN` and `MCP_AUTH_TOKEN` can also be read from files with `BLUELINK_PASSWORD_FILE`, `BLUELINK_PIN_FILE` and `MCP_AUTH_TOKEN_FILE`.
 
 | Variable | Default | |
 | --- | --- | --- |
@@ -104,7 +104,7 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 | `BLUELINK_TOKEN_FILE` | `~/.local/state/bluelink-mcp/token.json` (`/data/token.json` in Docker) | Login token cache. Set it empty to turn caching off. |
 | `MCP_TRANSPORT` | `stdio` (`http` in Docker) | `stdio` or `http` |
 | `MCP_HTTP_HOST`, `MCP_HTTP_PORT` | `127.0.0.1`, `8080` | HTTP listen address |
-| `MCP_AUTH_TOKEN` | | Bearer token clients must send. Required for `http`. |
+| `MCP_AUTH_TOKEN` | | Bearer token clients must send (at least 16 characters). Required for `http`. |
 | `MCP_ALLOWED_HOSTS` | | Optional Host header allow-list for DNS rebinding protection |
 | `MCP_ALLOWED_ORIGINS` | | Origins browser-based clients may use, when `MCP_ALLOWED_HOSTS` is set |
 
