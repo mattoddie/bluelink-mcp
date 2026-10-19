@@ -268,6 +268,34 @@ def test_otp_request_backs_off_instead_of_logging_in_on_every_call(tmp_path):
     assert OTPManager.logins == 1
 
 
+class OfflineManager(FakeManager):
+    def check_and_refresh_token(self):
+        self.calls.append(("login",))
+        raise ConnectionError("connection refused by 10.0.0.1")
+
+
+def test_network_errors_during_login_do_not_back_off(tmp_path):
+    server, config = make(tmp_path, factory=OfflineManager)
+    write_cache(config)
+    for _ in range(2):
+        with pytest.raises(ToolError, match="Could not reach Bluelink to log in") as err:
+            call(server, "list_vehicles")
+        assert "10.0.0.1" not in str(err.value)
+    # Each call tried again, and the cached session was kept.
+    assert len(FakeManager.instances) == 2
+    assert config.token_file.exists()
+
+
+def test_other_login_errors_do_not_back_off(tmp_path):
+    def broken(**kwargs):
+        raise APIError("Unknown brand, raw details")
+
+    server, _ = make(tmp_path, factory=broken)
+    for _ in range(2):
+        with pytest.raises(ToolError, match="Could not log in.*APIError"):
+            call(server, "list_vehicles")
+
+
 def test_login_backoff_can_be_turned_off(tmp_path):
     server, _ = make(tmp_path, factory=RejectingManager, BLUELINK_LOGIN_RETRY_MINUTES="0")
     for _ in range(2):

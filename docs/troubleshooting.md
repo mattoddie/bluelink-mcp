@@ -23,7 +23,7 @@ Start with the logs: `docker compose logs bluelink-mcp`, or your MCP client's se
 
 The tool returns *"Could not log in to Bluelink: ..."*, with a short reason and the error type, such as `(AuthenticationError)`. For the full error, run the server with debug logging.
 
-After a failed login, the server waits `BLUELINK_LOGIN_RETRY_MINUTES` (5) before trying again, and until then tools answer *"Logging in to Bluelink failed ... min ago"*. This protects the account from being locked by repeated attempts. Restarting the server clears the wait.
+After Bluelink rejects a login or asks for a one-time passcode, the server waits `BLUELINK_LOGIN_RETRY_MINUTES` (5) before trying again, and until then tools answer *"Logging in to Bluelink failed ... min ago"*. This protects the account from being locked by repeated attempts. Restarting the server clears the wait. Network errors (*"Could not reach Bluelink to log in"*) don't start the wait, because Bluelink never saw the attempt.
 
 1. **Check the app.** Log out of the official app and back in with the same email and password. If the app asks you to accept new terms, verify your email or set a new password, do that, then try again.
 2. **Check the region.** It must match where the account was created. In Europe, if `europe` keeps failing, try `europe-cci`, which is the backend some newer Hyundais and Kias use. For a Kia, also check `BLUELINK_BRAND=kia`: a Kia Connect login won't work against Hyundai's service.

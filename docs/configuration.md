@@ -63,7 +63,7 @@ See [Cached and live data](usage.md#cached-and-live-data) for what these mean in
 | Variable | Default | Description |
 |---|---|---|
 | `BLUELINK_TOKEN_FILE` | `$XDG_STATE_HOME/bluelink-mcp/token.json` (usually `~/.local/state/bluelink-mcp/token.json`); `/data/token.json` in the Docker image | Where to cache the Bluelink login. Set it to an empty value to turn caching off. |
-| `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | After a failed login, how long to wait before trying again. Until then, tools return an error without contacting Bluelink. `0` turns the wait off. |
+| `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | After Bluelink rejects a login (or asks for a one-time passcode), how long to wait before trying again. Network errors don't start the wait. Until then, tools return an error without contacting Bluelink. `0` turns the wait off. |
 
 Bluelink can temporarily block accounts that log in too often, so the server saves its session and reuses it until it expires, then refreshes it. The file is written with mode `0600`. It contains session tokens (but not your password or PIN), which are enough to use your Bluelink account until they expire, so protect it like a password. A cache written for a different username, or one that can't be read, is ignored.
 

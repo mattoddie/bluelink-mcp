@@ -234,12 +234,20 @@ class BluelinkClient:
                 "Bluelink asked for a one-time passcode. Log in once in the official app, then try again."
             ) from None
         except Exception as ex:
-            # Drop the session so the next call starts from a clean login, but not straight away.
+            # Drop the session so the next call starts from a clean login.
             self._manager = None
-            self._login_failed_at = time.monotonic()
             if isinstance(ex, AuthenticationError):
-                # The cached session is no good; don't keep retrying it.
+                # Bluelink rejected the login: the cached session is no good, and retrying
+                # straight away risks getting the account locked, so wait first.
+                self._login_failed_at = time.monotonic()
                 self._discard_token()
+            elif isinstance(ex, OSError):
+                # Bluelink was never reached, so there is nothing to protect the account from.
+                _LOGGER.debug("Bluelink login error", exc_info=ex)
+                raise BluelinkError(
+                    "Could not reach Bluelink to log in. Check the network connection and try again "
+                    f"({type(ex).__name__})."
+                ) from ex
             raise BluelinkError(f"Could not log in to Bluelink: {explain(ex)}") from ex
         self._login_failed_at = None
         self._save_token()
