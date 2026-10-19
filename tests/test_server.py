@@ -755,3 +755,16 @@ def test_log_level(raw, level, library):
 def test_log_level_is_validated():
     with pytest.raises(ConfigError, match="LOG_LEVEL must be one of"):
         log_level({"LOG_LEVEL": "verbose"})
+
+
+@pytest.mark.parametrize("minutes", ["0", "-5"])
+def test_min_refresh_minutes_must_be_positive(minutes):
+    with pytest.raises(ConfigError, match="BLUELINK_MIN_REFRESH_MINUTES must be at least 1"):
+        Config.from_env({**ENV, "BLUELINK_MIN_REFRESH_MINUTES": minutes})
+
+
+def test_refresh_is_not_marked_read_only(tmp_path):
+    server, _ = make(tmp_path)
+    tools = {t.name: t for t in anyio.run(server.list_tools)}
+    assert tools["refresh_vehicle_status"].annotations.read_only_hint is False
+    assert tools["get_vehicle_status"].annotations.read_only_hint is True

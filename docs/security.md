@@ -23,7 +23,7 @@ bluelink-mcp can find, lock, unlock and pre-condition a real car. This page expl
 1. **Read-only by default.** Command tools aren't registered unless `BLUELINK_ALLOW_WRITES=true`. A tool that isn't registered can't be called, whatever the model is told.
 2. **Location is off by default.** `get_vehicle_location` isn't registered unless `BLUELINK_ALLOW_LOCATION=true`, and no other tool returns the car's position. When it's on, coordinates are rounded to `BLUELINK_LOCATION_PRECISION` decimal places (4, about 10 m).
 3. **Unlock has its own switch.** `unlock_vehicle` also needs `BLUELINK_ALLOW_UNLOCK=true`. Locking, climate and charging are useful day to day, and unlocking rarely is, so most people should leave it off.
-4. **Tool annotations.** Tools are marked read-only, or destructive for unlock, so clients that support annotations, such as Claude Code, ask before running commands unless you've allowed them.
+4. **Tool annotations.** Reads are marked read-only, commands and `refresh_vehicle_status` (which wakes the car) as not read-only, and unlock as destructive, so clients that support annotations, such as Claude Code, ask before running commands unless you've allowed them.
 5. **Bearer token for HTTP.** The server won't start in HTTP mode without an `MCP_AUTH_TOKEN` of at least 16 characters, and the token is compared in constant time. Only `/health` is open. Secrets can come from files (`_FILE` variables) instead of the environment.
 6. **DNS rebinding protection.** Set `MCP_ALLOWED_HOSTS` to reject requests with unexpected `Host` headers. Browser origins must be on an allowed host or in `MCP_ALLOWED_ORIGINS`; other origins, including empty and `null` ones, are rejected. `/mcp` takes only `POST` requests with a JSON body of up to 4 MiB.
 7. **Rate-limited wake-ups.** `refresh_vehicle_status` can't be called in a loop to drain the 12V battery.
@@ -35,7 +35,15 @@ bluelink-mcp can find, lock, unlock and pre-condition a real car. This page expl
 
 ## Prompt injection
 
-An AI assistant can be tricked by text it reads, such as a web page, an email or a file, into calling tools you didn't ask for. bluelink-mcp's tools return only data from Bluelink, but your assistant may have other tools that read untrusted content in the same conversation.
+An AI assistant can be tricked by text it reads, such as a web page, an email or a file, into calling tools you didn't ask for. bluelink-mcp's tools return only data from Bluelink (and OpenStreetMap, with geocoding on), but your assistant may have other tools that read untrusted content in the same conversation.
+
+Some of what the tools return comes from people or services other than you, so treat it as untrusted text, not instructions:
+
+- **Car names** come from the nickname set in the app, which anyone with access to the account can change.
+- **Addresses** from `BLUELINK_GEOCODE` come from OpenStreetMap's Nominatim, whose place names are edited by the public.
+- **Warning and fault descriptions** come from Bluelink.
+
+A well-behaved assistant won't follow instructions found in tool results, but this is one more reason to keep confirmations on for commands.
 
 To limit the impact:
 

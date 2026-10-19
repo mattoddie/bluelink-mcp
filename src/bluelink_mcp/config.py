@@ -178,6 +178,12 @@ class Config:
         if origins and not hosts:
             raise ConfigError("MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS too")
 
+        min_refresh_minutes = _int(env, "BLUELINK_MIN_REFRESH_MINUTES", 10)
+        if min_refresh_minutes < 1:
+            raise ConfigError(
+                "BLUELINK_MIN_REFRESH_MINUTES must be at least 1, to protect the car's 12V battery"
+            )
+
         min_command_seconds = _int(env, "BLUELINK_MIN_COMMAND_SECONDS", 60)
         if min_command_seconds < 0:
             raise ConfigError("BLUELINK_MIN_COMMAND_SECONDS must not be negative")
@@ -199,7 +205,7 @@ class Config:
             token_file=token_file,
             allow_writes=allow_writes,
             allow_unlock=allow_unlock,
-            min_refresh_minutes=_int(env, "BLUELINK_MIN_REFRESH_MINUTES", 10),
+            min_refresh_minutes=min_refresh_minutes,
             min_command_seconds=min_command_seconds,
             login_retry_minutes=login_retry_minutes,
             cache_max_age_seconds=_int(env, "BLUELINK_CACHE_SECONDS", 60),

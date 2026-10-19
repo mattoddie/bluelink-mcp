@@ -39,7 +39,8 @@ The vehicle argument is optional when the account has a single car.
 """
 
 READ = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
-WAKE = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=True)
+# Waking the car uses its 12V battery and API quota, so it isn't a read-only call.
+WAKE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True)
 WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True)
 SENSITIVE = ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=True)
 

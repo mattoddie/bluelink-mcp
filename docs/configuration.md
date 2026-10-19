@@ -56,7 +56,7 @@ Tools that aren't allowed are **not registered at all**, so the assistant can't 
 | Variable | Default | Description |
 |---|---|---|
 | `BLUELINK_CACHE_SECONDS` | `60` | How long a status read from Bluelink is reused before asking again. This saves API calls when the assistant asks for status and location one after the other. |
-| `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum time between `refresh_vehicle_status` calls for each car. Waking the car uses its 12V battery and counts against the daily API limit. |
+| `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum time between `refresh_vehicle_status` calls for each car. Waking the car uses its 12V battery and counts against the daily API limit. At least `1`. |
 | `BLUELINK_MIN_COMMAND_SECONDS` | `60` | Minimum time before the same command (such as `lock_vehicle`) can be sent to the same car again. A failed attempt counts too. `0` turns it off. |
 
 See [Cached and live data](usage.md#cached-and-live-data) for what these mean in practice.
