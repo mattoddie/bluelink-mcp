@@ -29,7 +29,7 @@ After a failed login, the server waits `BLUELINK_LOGIN_RETRY_MINUTES` (5) before
 2. **Check the region.** It must match where the account was created. In Europe, if `europe` keeps failing, try `europe-cci`, which is the backend some newer Hyundais and Kias use. For a Kia, also check `BLUELINK_BRAND=kia`: a Kia Connect login won't work against Hyundai's service.
 3. **Too many attempts.** Bluelink temporarily blocks accounts after repeated logins, and the app may then fail too. Wait an hour, make sure the token cache is working (see below), and try again.
 4. **Changed password.** Update `BLUELINK_PASSWORD` (and `BLUELINK_PIN` if that changed) and restart the server. The cache always uses the configured password, and is deleted automatically when a login is rejected. To clear it by hand: in Docker, `docker compose exec bluelink-mcp rm /data/token.json`; otherwise `rm ~/.local/state/bluelink-mcp/token.json`.
-5. **One-time passcode.** *"Bluelink asked for a one-time passcode"* means the account needs an OTP, which the server can't enter. Log in once in the app on a trusted device, then try again.
+5. **One-time passcode.** *"Bluelink asked for a one-time passcode"* means the account needs an OTP, which the server can't enter. Log in once in the app on a trusted device, then try again. The server then waits `BLUELINK_LOGIN_RETRY_MINUTES` before trying again, like after any rejected login.
 
 If logins worked before and stopped for everyone at the same time, Hyundai or Kia has probably changed its API. Update to the latest image. If that doesn't help, check the [library's issues](https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api/issues).
 

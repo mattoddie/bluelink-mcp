@@ -216,6 +216,11 @@ class BluelinkClient:
                 )
             self._manager.check_and_refresh_token()
         except AuthenticationOTPRequired:
+            # The library logs in with the password whenever it has no token, and an OTP
+            # request leaves it without one. Without the backoff, every tool call would
+            # make another full password login, which is what gets accounts locked.
+            self._manager = None
+            self._login_failed_at = time.monotonic()
             raise BluelinkError(
                 "Bluelink asked for a one-time passcode. Log in once in the official app, then try again."
             ) from None

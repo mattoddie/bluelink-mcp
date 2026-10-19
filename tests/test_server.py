@@ -8,7 +8,7 @@ import anyio
 import pytest
 from hyundai_kia_connect_api import Vehicle
 from hyundai_kia_connect_api.const import ORDER_STATUS
-from hyundai_kia_connect_api.exceptions import APIError, AuthenticationError
+from hyundai_kia_connect_api.exceptions import APIError, AuthenticationError, AuthenticationOTPRequired
 from hyundai_kia_connect_api.Token import Token
 from mcp.server.mcpserver.exceptions import ToolError
 
@@ -234,6 +234,29 @@ def test_failed_login_discards_cache_and_backs_off(tmp_path):
     with pytest.raises(ToolError, match="waits before trying again"):
         call(server, "list_vehicles")
     assert len(FakeManager.instances) == 1
+
+
+class OTPManager(FakeManager):
+    """Like the library: with no token, every check logs in with the password, then asks for an OTP."""
+
+    logins = 0
+
+    def check_and_refresh_token(self):
+        if self.token is None:
+            OTPManager.logins += 1
+            raise AuthenticationOTPRequired("OTP required to refresh token")
+        return False
+
+
+def test_otp_request_backs_off_instead_of_logging_in_on_every_call(tmp_path):
+    OTPManager.logins = 0
+    server, _ = make(tmp_path, factory=OTPManager)
+    with pytest.raises(ToolError, match="one-time passcode"):
+        call(server, "list_vehicles")
+    for _ in range(4):
+        with pytest.raises(ToolError, match="waits before trying again"):
+            call(server, "list_vehicles")
+    assert OTPManager.logins == 1
 
 
 def test_login_backoff_can_be_turned_off(tmp_path):
