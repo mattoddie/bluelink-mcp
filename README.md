@@ -96,6 +96,7 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 | `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools |
 | `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle` (needs writes) |
 | `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum gap between `refresh_vehicle_status` calls per car |
+| `BLUELINK_MIN_COMMAND_SECONDS` | `60` | Minimum gap before sending the same command to the same car again |
 | `BLUELINK_CACHE_SECONDS` | `60` | How long a status read is reused |
 | `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | Wait after Bluelink rejects a login before trying again |
 | `BLUELINK_TOKEN_FILE` | `~/.local/state/bluelink-mcp/token.json` (`/data/token.json` in Docker) | Login token cache. Set it empty to turn caching off. |
@@ -120,7 +121,7 @@ Not every brand is available everywhere. New Zealand is Kia only, Brazil is Hyun
 
 ## Safety
 
-The server is read-only unless you set `BLUELINK_ALLOW_WRITES=true`, and `unlock_vehicle` needs its own `BLUELINK_ALLOW_UNLOCK=true` switch. Tools carry MCP annotations (read-only, destructive) so clients can ask before running them. In HTTP mode every request needs the bearer token, so don't expose the port to the internet without TLS in front of it.
+The server is read-only unless you set `BLUELINK_ALLOW_WRITES=true`, and `unlock_vehicle` needs its own `BLUELINK_ALLOW_UNLOCK=true` switch. Unlocking also needs your confirmation on the server side (see [Unlocking](docs/usage.md#unlocking)), and each command is rate limited per car. Tools carry MCP annotations (read-only, destructive) so clients can ask before running them. In HTTP mode every request needs the bearer token, so don't expose the port to the internet without TLS in front of it.
 
 ## Documentation
 

@@ -45,7 +45,7 @@ The region must match where your account was created, not where the car is now. 
 | Variable | Default | Description |
 |---|---|---|
 | `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools: lock, climate, charging, charge limits and hazard lights |
-| `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle`. Needs `BLUELINK_ALLOW_WRITES=true`; the server refuses to start otherwise. |
+| `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle`. Needs `BLUELINK_ALLOW_WRITES=true`; the server refuses to start otherwise. Each unlock also needs your confirmation; see [Unlocking](usage.md#unlocking). |
 
 Tools that aren't allowed are **not registered at all**, so the assistant can't see them, let alone call them. The [tool reference](tools.md) shows which setting each tool needs.
 
@@ -55,6 +55,7 @@ Tools that aren't allowed are **not registered at all**, so the assistant can't 
 |---|---|---|
 | `BLUELINK_CACHE_SECONDS` | `60` | How long a status read from Bluelink is reused before asking again. This saves API calls when the assistant asks for status and location one after the other. |
 | `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum time between `refresh_vehicle_status` calls for each car. Waking the car uses its 12V battery and counts against the daily API limit. |
+| `BLUELINK_MIN_COMMAND_SECONDS` | `60` | Minimum time before the same command (such as `lock_vehicle`) can be sent to the same car again. A failed attempt counts too. `0` turns it off. |
 
 See [Cached and live data](usage.md#cached-and-live-data) for what these mean in practice.
 

@@ -67,6 +67,7 @@ class Config:
     allow_writes: bool = False
     allow_unlock: bool = False
     min_refresh_minutes: int = 10
+    min_command_seconds: int = 60
     login_retry_minutes: int = 5
     cache_max_age_seconds: int = 60
     transport: str = "stdio"
@@ -113,6 +114,10 @@ class Config:
         if origins and not hosts:
             raise ConfigError("MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS too")
 
+        min_command_seconds = _int(env, "BLUELINK_MIN_COMMAND_SECONDS", 60)
+        if min_command_seconds < 0:
+            raise ConfigError("BLUELINK_MIN_COMMAND_SECONDS must not be negative")
+
         login_retry_minutes = _int(env, "BLUELINK_LOGIN_RETRY_MINUTES", 5)
         if login_retry_minutes < 0:
             raise ConfigError("BLUELINK_LOGIN_RETRY_MINUTES must not be negative")
@@ -129,6 +134,7 @@ class Config:
             allow_writes=allow_writes,
             allow_unlock=allow_unlock,
             min_refresh_minutes=_int(env, "BLUELINK_MIN_REFRESH_MINUTES", 10),
+            min_command_seconds=min_command_seconds,
             login_retry_minutes=login_retry_minutes,
             cache_max_age_seconds=_int(env, "BLUELINK_CACHE_SECONDS", 60),
             transport=transport,

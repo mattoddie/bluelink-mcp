@@ -29,6 +29,8 @@ bluelink-mcp can find, lock, unlock and pre-condition a real car. This page expl
 7. **Secrets stay out of output.** Tools never return the password, PIN or tokens, and configuration is redacted when printed. Errors from Bluelink are reported as fixed messages with the error type, not the raw response; details go to the log at debug level. The token cache is written with mode `0600` and doesn't contain the password or PIN.
 8. **No login loops.** After Bluelink rejects a login or asks for a one-time passcode, the server discards the token cache and doesn't try again for `BLUELINK_LOGIN_RETRY_MINUTES`, so a wrong or changed password can't get the account locked.
 9. **Unlock picks the car exactly.** With several cars on the account, `unlock_vehicle` needs the exact name, VIN or ID; part of a name isn't enough.
+10. **Unlock asks you, on the server side.** Clients that support MCP elicitation show you a question from the server, and nothing is unlocked unless you say yes. With other clients, the assistant has to call again with the car's name or VIN ending in `confirm`, after checking with you. That second step can't stop a model that ignores its instructions, so keep your client's approval prompt on as well. See [Unlocking](usage.md#unlocking).
+11. **Rate-limited commands.** The same command can't be sent to the same car again within `BLUELINK_MIN_COMMAND_SECONDS` (60), so a looping assistant can't flood the car or the account's daily API quota.
 
 ## Prompt injection
 

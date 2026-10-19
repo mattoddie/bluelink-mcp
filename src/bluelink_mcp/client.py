@@ -117,6 +117,8 @@ class BluelinkClient:
         self._login_failed_at: float | None = None
         self._cache_updated: dict[str, float] = {}
         self._last_force_refresh: dict[str, float] = {}
+        # When each command was last sent to each car: (vehicle ID, command) -> time.
+        self._last_command: dict[tuple[str, str], float] = {}
         # Waiting for a command polls with the lock released between checks, and stays
         # under the 60-120 s request timeouts common in MCP clients.
         self._command_wait_seconds = command_wait_seconds
@@ -349,22 +351,59 @@ class BluelinkClient:
 
     # --- commands ------------------------------------------------------------
 
+    def _check_command_gap(self, v: Vehicle, name: str) -> None:
+        """Refuse to send the same command to the same car again too soon."""
+        min_gap = self._config.min_command_seconds
+        since = time.monotonic() - self._last_command.get((v.id, name), float("-inf"))
+        if since < min_gap:
+            wait = int(min_gap - since) + 1
+            raise BluelinkError(
+                f"{name} was sent to {v.name} {int(since)} s ago. To avoid flooding the car and "
+                f"Bluelink's daily API quota with repeated commands, wait about {wait} s before "
+                "sending it again, or check the earlier one with get_command_status."
+            )
+
+    def command_target(self, vehicle: str | None, name: str, exact: bool = False) -> Vehicle:
+        """The car a command would go to, after checking the command isn't rate limited."""
+
+        def run(m: Any) -> Vehicle:
+            v = self.resolve(m, vehicle, exact=exact)
+            self._check_command_gap(v, name)
+            return v
+
+        return self.call(run)
+
     def command(
         self,
         vehicle: str | None,
+        name: str,
         action: Callable[[Any, Vehicle], str | None],
         wait: bool,
         exact: bool = False,
     ) -> dict[str, Any]:
         """Send a remote command and, if asked, wait for the car to confirm it.
 
-        Only sending and each status check hold the lock, so other tools keep working
-        while the car takes its time to answer.
+        Each command (by name) is rate limited per car. Only sending and each status
+        check hold the lock, so other tools keep working while the car takes its time
+        to answer.
         """
 
         def send(m: Any) -> tuple[Vehicle, str | None]:
             v = self.resolve(m, vehicle, exact=exact)
-            action_id = action(m, v)
+            self._check_command_gap(v, name)
+            key = (v.id, name)
+            previous = self._last_command.get(key)
+            # Count the attempt even if it fails: a failed command may still have reached the car.
+            self._last_command[key] = time.monotonic()
+            try:
+                action_id = action(m, v)
+            except BluelinkError:
+                # Our own checks refused it before anything was sent.
+                if previous is None:
+                    self._last_command.pop(key, None)
+                else:
+                    self._last_command[key] = previous
+                raise
             # Commands change state, so the next status read must go back to Bluelink.
             self._cache_updated.pop(v.id, None)
             return v, action_id

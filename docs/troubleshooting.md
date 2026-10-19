@@ -48,6 +48,8 @@ If logins worked before and stopped for everyone at the same time, Hyundai or Ki
 | `timeout` | Bluelink gave up waiting for the car, often because of poor mobile signal in a car park. The command may still have happened, so check the status in a minute before retrying. |
 | `pending` | The car hadn't answered within about 60 seconds. Ask the assistant to check the command later; it has the `action_id`. |
 | PIN errors | Set `BLUELINK_PIN` to the PIN you use in the app. |
+| *"... was sent to ... s ago"* | The same command was sent to that car less than `BLUELINK_MIN_COMMAND_SECONDS` (60) ago. Wait, or check the earlier command with `get_command_status`. |
+| *"Not unlocked: this needs confirmation"* | Your client doesn't support MCP elicitation, so the assistant must confirm with you and call again with `confirm` set to the car's name or the last 6 characters of its VIN. See [Unlocking](usage.md#unlocking). |
 | *"No vehicle matches"* when unlocking | With several cars, `unlock_vehicle` needs the car's exact name, VIN or ID. |
 | *"Unknown tool"* or the tool isn't listed | Command tools are only registered with `BLUELINK_ALLOW_WRITES=true`, and unlock with `BLUELINK_ALLOW_UNLOCK=true`. Restart the server and reconnect the client after changing settings. |
 

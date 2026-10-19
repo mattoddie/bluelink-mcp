@@ -68,6 +68,17 @@ By default (`wait: true`) the tool waits up to about 60 seconds for the car's an
 
 After a command, the next status read goes back to Bluelink instead of using the cache.
 
+The same command can't be sent to the same car again within `BLUELINK_MIN_COMMAND_SECONDS` (60 by default), even if the first attempt failed, because a failed command may still have reached the car. The tool says how long to wait. Other commands, and other cars, aren't held up.
+
+## Unlocking
+
+`unlock_vehicle` asks you to confirm on the server's side as well, on top of any approval prompt your client shows:
+
+- If your client supports MCP elicitation, the server asks you directly: *"Unlock Santa Fe (VIN ending 123456)?"* Nothing is unlocked unless you answer yes.
+- If it doesn't, the first call fails and asks the assistant to check with you. The assistant must then call again with `confirm` set to the car's name or the last 6 characters of its VIN, as `list_vehicles` shows them.
+
+The confirm argument makes unlocking a deliberate two-step action, but a model that ignores its instructions could still fill it in itself. Keep your client's approval prompt for `unlock_vehicle` turned on.
+
 ## Climate options
 
 `start_climate` takes:

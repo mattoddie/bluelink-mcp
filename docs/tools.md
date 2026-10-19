@@ -224,11 +224,12 @@ Lock the car's doors.
 
 🔴 unlock
 
-Unlock the car's doors. Only do this when the user clearly asks for it. With several cars on the account, give the car's exact name, VIN or ID.
+Unlock the car's doors. Only do this when the user clearly asks for it. With several cars on the account, give the car's exact name, VIN or ID. The server asks the user to confirm. If the client can't show that question, the call fails until `confirm` is set to the car's name or the last 6 characters of its VIN: ask the user first, and never guess or reuse an earlier answer.
 
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
+| `confirm` | string |  |  | Only needed when the MCP client can't ask the user itself (no elicitation support): the car's name or the last 6 characters of its VIN, exactly as list_vehicles or get_vehicle_status show them. Ask the user before setting it. |
 | `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
 
 ### flash_hazard_lights

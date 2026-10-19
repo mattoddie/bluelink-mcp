@@ -431,7 +431,9 @@ def test_command_returns_pending_when_the_car_is_slow(tmp_path):
 
 
 def test_start_climate_in_usa_sends_fahrenheit(tmp_path):
-    server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_REGION="usa")
+    server, _ = make(
+        tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_REGION="usa", BLUELINK_MIN_COMMAND_SECONDS="0"
+    )
     sent = []
     for celsius in (21, 14, 30):
         data, _ = call(server, "start_climate", {"temperature": celsius})
@@ -484,9 +486,9 @@ def test_unlock_needs_an_exact_vehicle_with_several_cars(tmp_path):
     with pytest.raises(ToolError, match="exact name"):
         call(server, "unlock_vehicle", {"vehicle": "santa"})
     assert not any(c[0] == "unlock" for c in FakeManager.instances[-1].calls)
-    data, _ = call(server, "unlock_vehicle", {"vehicle": "santa fe"})
+    data, _ = call(server, "unlock_vehicle", {"vehicle": "santa fe", "confirm": "Santa Fe"})
     assert (data["vehicle"], data["status"]) == ("Santa Fe", "success")
-    data, _ = call(server, "unlock_vehicle", {"vehicle": "KMHABC"})
+    data, _ = call(server, "unlock_vehicle", {"vehicle": "KMHABC", "confirm": "KMHABC"})
     assert data["vehicle"] == "Ioniq 5"
 
 
@@ -518,3 +520,154 @@ def test_allowed_origins():
     assert security.allowed_origins == ["https://claude.ai", "https://bluelink.example.com"]
     with pytest.raises(ConfigError, match="MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS"):
         Config.from_env({**ENV, "MCP_ALLOWED_ORIGINS": "https://claude.ai"})
+
+
+# --- command rate limits and unlock confirmation ---------------------------
+
+
+def test_commands_are_rate_limited_per_car_and_command(tmp_path):
+    server, _ = make(tmp_path, factory=TwoCarManager, BLUELINK_ALLOW_WRITES="true")
+    call(server, "lock_vehicle", {"vehicle": "santa fe"})
+    with pytest.raises(ToolError, match="lock_vehicle was sent to Santa Fe 0 s ago.*wait about 60 s"):
+        call(server, "lock_vehicle", {"vehicle": "santa fe"})
+    # Another car, or another command, isn't held up.
+    call(server, "lock_vehicle", {"vehicle": "ioniq 5"})
+    call(server, "start_climate", {"vehicle": "santa fe"})
+    assert [c for c in FakeManager.instances[-1].calls if c[0] == "lock"] == [("lock", "v1"), ("lock", "v2")]
+
+
+def test_command_rate_limit_can_be_turned_off(tmp_path):
+    server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_MIN_COMMAND_SECONDS="0")
+    for _ in range(3):
+        call(server, "lock_vehicle")
+    assert FakeManager.instances[-1].calls.count(("lock", "v1")) == 3
+    with pytest.raises(ConfigError, match="BLUELINK_MIN_COMMAND_SECONDS"):
+        Config.from_env({**ENV, "BLUELINK_MIN_COMMAND_SECONDS": "-1"})
+
+
+def test_failed_command_counts_against_the_rate_limit(tmp_path):
+    class FlakyLockManager(FakeManager):
+        def lock(self, vid):
+            self.calls.append(("lock", vid))
+            raise APIError("car did not answer")
+
+    server, _ = make(tmp_path, factory=FlakyLockManager, BLUELINK_ALLOW_WRITES="true")
+    with pytest.raises(ToolError, match="APIError"):
+        call(server, "lock_vehicle")
+    with pytest.raises(ToolError, match="wait about"):
+        call(server, "lock_vehicle")
+    assert FakeManager.instances[-1].calls.count(("lock", "v1")) == 1
+
+
+def test_command_refused_by_our_own_checks_does_not_count(tmp_path):
+    server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_REGION="canada")
+    call(server, "list_vehicles")
+    FakeManager.instances[-1].vehicles["v1"].year = 2019
+    with pytest.raises(ToolError, match="lowest temperature"):
+        call(server, "start_climate", {"temperature": 15})
+    call(server, "start_climate", {"temperature": 16})
+
+
+def unlock_server(tmp_path, **extra):
+    return make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true", **extra)[0]
+
+
+def unlocks():
+    return [c for c in FakeManager.instances[-1].calls if c[0] == "unlock"] if FakeManager.instances else []
+
+
+@pytest.mark.parametrize("confirm", [None, "", "yes", "true", "Santa", "XYZ", "HXYZ"])
+def test_unlock_without_elicitation_needs_the_car_named_in_confirm(tmp_path, confirm):
+    server = unlock_server(tmp_path)
+    args = {} if confirm is None else {"confirm": confirm}
+    with pytest.raises(ToolError, match="needs confirmation"):
+        call(server, "unlock_vehicle", args)
+    assert unlocks() == []
+
+
+@pytest.mark.parametrize("confirm", ["Santa Fe", " santa fe ", "KMHXYZ", "kmhxyz"])
+def test_unlock_with_matching_confirm(tmp_path, confirm):
+    server = unlock_server(tmp_path)
+    data, _ = call(server, "unlock_vehicle", {"confirm": confirm})
+    assert data["status"] == "success"
+    assert unlocks() == [("unlock", "v1")]
+
+
+def test_unlock_is_rate_limited(tmp_path):
+    server = unlock_server(tmp_path)
+    call(server, "unlock_vehicle", {"confirm": "Santa Fe"})
+    with pytest.raises(ToolError, match="unlock_vehicle was sent"):
+        call(server, "unlock_vehicle", {"confirm": "Santa Fe"})
+    assert unlocks() == [("unlock", "v1")]
+
+
+def test_unlock_confirm_is_not_shown_to_the_model_as_a_hint(tmp_path):
+    server = unlock_server(tmp_path)
+    with pytest.raises(ToolError) as err:
+        call(server, "unlock_vehicle")
+    assert "Santa Fe" not in str(err.value)
+    assert "KMHXYZ" not in str(err.value)
+
+
+def connect_and_unlock(server, mode, answer, args=None):
+    """Call unlock_vehicle through a real MCP client whose user gives `answer` (None: no elicitation)."""
+    from mcp import Client
+    from mcp.types import ElicitResult
+
+    questions = []
+
+    async def elicit(context, params):
+        questions.append(params.message)
+        if answer in ("decline", "cancel"):
+            return ElicitResult(action=answer)
+        return ElicitResult(action="accept", content={"unlock": answer})
+
+    async def go():
+        async with Client(
+            server, mode=mode, elicitation_callback=elicit if answer is not None else None
+        ) as c:
+            return await c.call_tool("unlock_vehicle", args or {})
+
+    return anyio.run(go), questions
+
+
+@pytest.mark.parametrize("mode", ["auto", "legacy"])
+def test_unlock_asks_the_user_when_the_client_can(tmp_path, mode):
+    server = unlock_server(tmp_path)
+    result, questions = connect_and_unlock(server, mode, True)
+    assert not result.is_error, result.content
+    assert result.structured_content["status"] == "success"
+    assert questions == ["Unlock Santa Fe (VIN ending KMHXYZ)? The doors will open for anyone near the car."]
+    assert unlocks() == [("unlock", "v1")]
+
+
+@pytest.mark.parametrize("mode", ["auto", "legacy"])
+@pytest.mark.parametrize("answer", [False, "decline", "cancel"])
+def test_unlock_stops_when_the_user_says_no(tmp_path, mode, answer):
+    server = unlock_server(tmp_path)
+    # A confirm argument doesn't override the user's answer.
+    result, questions = connect_and_unlock(server, mode, answer, {"confirm": "Santa Fe"})
+    assert result.is_error
+    assert "Not unlocked" in result.content[0].text
+    assert len(questions) == 1
+    assert unlocks() == []
+
+
+@pytest.mark.parametrize("mode", ["auto", "legacy"])
+def test_unlock_falls_back_to_confirm_without_elicitation(tmp_path, mode):
+    server = unlock_server(tmp_path)
+    result, _ = connect_and_unlock(server, mode, None)
+    assert result.is_error
+    assert "needs confirmation" in result.content[0].text
+    result, _ = connect_and_unlock(server, mode, None, {"confirm": "Santa Fe"})
+    assert not result.is_error, result.content
+    assert unlocks() == [("unlock", "v1")]
+
+
+def test_unlock_is_not_asked_when_rate_limited(tmp_path):
+    server = unlock_server(tmp_path)
+    connect_and_unlock(server, "auto", True)
+    result, questions = connect_and_unlock(server, "auto", True)
+    assert result.is_error
+    assert "unlock_vehicle was sent" in result.content[0].text
+    assert questions == []
