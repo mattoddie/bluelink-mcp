@@ -63,6 +63,8 @@ class Config:
     brand: int = BRANDS["hyundai"]
     language: str = "en"
     geocode: bool = False
+    allow_location: bool = False
+    location_precision: int = 4
     token_file: Path | None = None
     allow_writes: bool = False
     allow_unlock: bool = False
@@ -109,6 +111,15 @@ class Config:
         if allow_unlock and not allow_writes:
             raise ConfigError("BLUELINK_ALLOW_UNLOCK needs BLUELINK_ALLOW_WRITES=true too")
 
+        allow_location = _bool(env, "BLUELINK_ALLOW_LOCATION")
+        geocode = _bool(env, "BLUELINK_GEOCODE")
+        if geocode and not allow_location:
+            # Geocoding sends the car's coordinates to OpenStreetMap, for a tool that isn't there.
+            raise ConfigError("BLUELINK_GEOCODE needs BLUELINK_ALLOW_LOCATION=true too")
+        location_precision = _int(env, "BLUELINK_LOCATION_PRECISION", 4)
+        if not 0 <= location_precision <= 15:
+            raise ConfigError("BLUELINK_LOCATION_PRECISION must be between 0 and 15 decimal places")
+
         hosts = _list(env, "MCP_ALLOWED_HOSTS")
         origins = _list(env, "MCP_ALLOWED_ORIGINS")
         if origins and not hosts:
@@ -129,7 +140,9 @@ class Config:
             region=REGIONS[region_name],
             brand=BRANDS[brand_name],
             language=env.get("BLUELINK_LANGUAGE", "en").strip() or "en",
-            geocode=_bool(env, "BLUELINK_GEOCODE"),
+            geocode=geocode,
+            allow_location=allow_location,
+            location_precision=location_precision,
             token_file=token_file,
             allow_writes=allow_writes,
             allow_unlock=allow_unlock,

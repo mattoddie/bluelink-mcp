@@ -96,9 +96,11 @@ def describe(text: str | None) -> str:
 
 
 def render() -> str:
-    read = anyio.run(tools_for)
-    write = anyio.run(lambda: tools_for(BLUELINK_ALLOW_WRITES="true"))
-    every = anyio.run(lambda: tools_for(BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true"))
+    # Location is a separate privacy switch; its tool is listed as a read.
+    loc = {"BLUELINK_ALLOW_LOCATION": "true"}
+    read = anyio.run(lambda: tools_for(**loc))
+    write = anyio.run(lambda: tools_for(**loc, BLUELINK_ALLOW_WRITES="true"))
+    every = anyio.run(lambda: tools_for(**loc, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true"))
 
     def level(name: str) -> str:
         return "read" if name in read else "write" if name in write else "unlock"
@@ -123,7 +125,7 @@ def render() -> str:
         "",
         "| Label | Registered when |",
         "|---|---|",
-        "| 🟢 read | Always |",
+        "| 🟢 read | Always, except `get_vehicle_location`, which needs `BLUELINK_ALLOW_LOCATION=true` |",
         "| 🟠 write | `BLUELINK_ALLOW_WRITES=true` |",
         "| 🔴 unlock | `BLUELINK_ALLOW_WRITES=true` and `BLUELINK_ALLOW_UNLOCK=true` |",
         "",

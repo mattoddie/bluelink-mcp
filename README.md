@@ -39,7 +39,7 @@ It's built on [`hyundai_kia_connect_api`](https://github.com/Hyundai-Kia-Connect
 | `list_vehicles` | Vehicles on the account | |
 | `get_vehicle_status` | Last reported battery/fuel, range, charging, climate, locks, doors, windows, tyres, warnings and charging schedule. Doesn't wake the car. | |
 | `refresh_vehicle_status` | Wakes the car for live data. Rate limited (see below). | |
-| `get_vehicle_location` | Latitude/longitude, map link and optional address | |
+| `get_vehicle_location` | Latitude/longitude, map link and optional address | location |
 | `get_trips` | A day's trips, or a month's summary | |
 | `get_energy_usage` | Daily energy use for driving, climate, electronics and battery care | |
 | `get_command_status` | Result of an earlier command | |
@@ -92,7 +92,9 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 | `BLUELINK_REGION` | `europe` | `europe`, `europe-cci`, `usa`, `canada`, `australia`, `nz`, `india`, `china`, `brazil` |
 | `BLUELINK_BRAND` | `hyundai` | `hyundai` (Bluelink), `kia` (Kia Connect / UVO), `genesis` (Genesis Connect) |
 | `BLUELINK_LANGUAGE` | `en` | Response language (Europe) |
-| `BLUELINK_GEOCODE` | `false` | Add a street address to the location via OpenStreetMap |
+| `BLUELINK_ALLOW_LOCATION` | `false` | Register `get_vehicle_location` |
+| `BLUELINK_LOCATION_PRECISION` | `4` | Decimal places of latitude/longitude to return (4 is about 10 m) |
+| `BLUELINK_GEOCODE` | `false` | Add a street address to the location via OpenStreetMap (needs location) |
 | `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools |
 | `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle` (needs writes) |
 | `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum gap between `refresh_vehicle_status` calls per car |

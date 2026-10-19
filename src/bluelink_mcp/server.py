@@ -191,10 +191,12 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         Uses a little 12V battery and API quota, so it is rate limited."""
         return vehicle_status(await run(client.force_refresh, vehicle))
 
-    @mcp.tool(title="Get vehicle location", annotations=READ)
-    async def get_vehicle_location(vehicle: VehicleArg = None) -> dict[str, Any]:
-        """Get where the car is parked (latitude/longitude, and an address if geocoding is on)."""
-        return vehicle_location(await run(client.status, vehicle))
+    if config.allow_location:
+
+        @mcp.tool(title="Get vehicle location", annotations=READ)
+        async def get_vehicle_location(vehicle: VehicleArg = None) -> dict[str, Any]:
+            """Get where the car is parked (latitude/longitude, and an address if geocoding is on)."""
+            return vehicle_location(await run(client.status, vehicle), config.location_precision)
 
     @mcp.tool(title="Get trips", annotations=READ)
     async def get_trips(

@@ -238,7 +238,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
           <p class="kicker">What it can do</p>
           <h2>{totals.tools} tools, from status to pre-heating.</h2>
           <p>
-            {`${totals.read} read tools are always available. ${totals.write} command tools and ${totals.unlock} unlock tool are only there when you turn them on.`}
+            {`${totals.read} read tools are available (location only if you allow it). ${totals.write} command tools and ${totals.unlock} unlock tool are only there when you turn them on.`}
           </p>
         </div>
         <div class="toolsets">
@@ -288,7 +288,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
             <div class="level on">
               <div class="lv-head"><span class="pill r">read</span><span class="switch on" aria-hidden="true"></span></div>
               <p><strong>{totals.read} tools</strong>, always on</p>
-              <code>get_vehicle_status · get_vehicle_location · get_trips …</code>
+              <code>get_vehicle_status · get_trips · get_energy_usage …</code>
             </div>
             <div class="level">
               <div class="lv-head"><span class="pill w">write</span><span class="switch" aria-hidden="true"></span></div>

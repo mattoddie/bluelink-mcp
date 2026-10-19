@@ -16,6 +16,7 @@ Start with the logs: `docker compose logs bluelink-mcp`, or your MCP client's se
 | `BLUELINK_REGION must be one of ...` | Use one of the names in [Configuration](configuration.md#choosing-a-region), such as `europe` or `usa`. |
 | `BLUELINK_ALLOW_UNLOCK needs BLUELINK_ALLOW_WRITES=true too` | Turn on writes as well, or turn unlock off. |
 | `BLUELINK_BRAND=... is not supported in BLUELINK_REGION=...` | The library has no service for that brand in that region. Check the [compatibility table](compatibility.md). |
+| `BLUELINK_GEOCODE needs BLUELINK_ALLOW_LOCATION=true too` | Addresses are only looked up for the location tool. Set `BLUELINK_ALLOW_LOCATION=true`, or turn geocoding off. |
 | `MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS too` | Origins are only checked together with hosts. Set `MCP_ALLOWED_HOSTS` as well. |
 | `set MCP_AUTH_TOKEN when using the http transport` | Generate one with `openssl rand -hex 32` and add it to `.env`. |
 
@@ -51,7 +52,7 @@ If logins worked before and stopped for everyone at the same time, Hyundai or Ki
 | *"... was sent to ... s ago"* | The same command was sent to that car less than `BLUELINK_MIN_COMMAND_SECONDS` (60) ago. Wait, or check the earlier command with `get_command_status`. |
 | *"Not unlocked: this needs confirmation"* | Your client doesn't support MCP elicitation, so the assistant must confirm with you and call again with `confirm` set to the car's name or the last 6 characters of its VIN. See [Unlocking](usage.md#unlocking). |
 | *"No vehicle matches"* when unlocking | With several cars, `unlock_vehicle` needs the car's exact name, VIN or ID. |
-| *"Unknown tool"* or the tool isn't listed | Command tools are only registered with `BLUELINK_ALLOW_WRITES=true`, and unlock with `BLUELINK_ALLOW_UNLOCK=true`. Restart the server and reconnect the client after changing settings. |
+| *"Unknown tool"* or the tool isn't listed | Command tools are only registered with `BLUELINK_ALLOW_WRITES=true`, unlock with `BLUELINK_ALLOW_UNLOCK=true`, and `get_vehicle_location` with `BLUELINK_ALLOW_LOCATION=true`. Restart the server and reconnect the client after changing settings. |
 
 ## Client connection problems
 

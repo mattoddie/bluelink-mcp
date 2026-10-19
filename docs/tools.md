@@ -8,7 +8,7 @@ Each tool is labelled with the setting it needs:
 
 | Label | Registered when |
 |---|---|
-| 🟢 read | Always |
+| 🟢 read | Always, except `get_vehicle_location`, which needs `BLUELINK_ALLOW_LOCATION=true` |
 | 🟠 write | `BLUELINK_ALLOW_WRITES=true` |
 | 🔴 unlock | `BLUELINK_ALLOW_WRITES=true` and `BLUELINK_ALLOW_UNLOCK=true` |
 

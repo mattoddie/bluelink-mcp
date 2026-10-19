@@ -191,8 +191,17 @@ def vehicle_status(v: Vehicle) -> dict[str, Any]:
     )
 
 
-def vehicle_location(v: Vehicle) -> dict[str, Any]:
-    lat, lon = v.location_latitude, v.location_longitude
+def _round(value: Any, places: int) -> Any:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    # round(x) without places gives a whole number (52, not 52.0) for the map link.
+    return round(value, places) if places else round(value)
+
+
+def vehicle_location(v: Vehicle, precision: int = 4) -> dict[str, Any]:
+    """Where the car is, with coordinates rounded to `precision` decimal places."""
+    lat = _round(v.location_latitude, precision)
+    lon = _round(v.location_longitude, precision)
     name, address = _get(v, "geocode") or (None, None)
     return clean(
         {

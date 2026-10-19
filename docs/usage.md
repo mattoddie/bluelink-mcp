@@ -7,6 +7,7 @@ Ask about your car in plain language. The assistant picks the tools; you don't n
 - [How commands work](#how-commands-work)
 - [Climate options](#climate-options)
 - [Charging](#charging)
+- [Unlocking](#unlocking)
 - [Several cars](#several-cars)
 
 ## Example questions
@@ -22,7 +23,7 @@ Ask about your car in plain language. The assistant picks the tools; you don't n
 
 **Where and how far**
 
-- *"Where's the car?"*
+- *"Where's the car?"* (needs `BLUELINK_ALLOW_LOCATION=true`)
 - *"How many miles did I drive last week, and what was my longest trip?"*
 - *"Summarise my driving for September."*
 - *"How much energy went on climate versus driving this week?"*

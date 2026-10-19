@@ -21,16 +21,17 @@ bluelink-mcp can find, lock, unlock and pre-condition a real car. This page expl
 ## Layers of protection
 
 1. **Read-only by default.** Command tools aren't registered unless `BLUELINK_ALLOW_WRITES=true`. A tool that isn't registered can't be called, whatever the model is told.
-2. **Unlock has its own switch.** `unlock_vehicle` also needs `BLUELINK_ALLOW_UNLOCK=true`. Locking, climate and charging are useful day to day, and unlocking rarely is, so most people should leave it off.
-3. **Tool annotations.** Tools are marked read-only, or destructive for unlock, so clients that support annotations, such as Claude Code, ask before running commands unless you've allowed them.
-4. **Bearer token for HTTP.** The server won't start in HTTP mode without `MCP_AUTH_TOKEN`, and the token is compared in constant time. Only `/health` is open.
-5. **DNS rebinding protection.** Set `MCP_ALLOWED_HOSTS` to reject requests with unexpected `Host` headers, and `MCP_ALLOWED_ORIGINS` to list the browser origins allowed to call the server; other origins are rejected.
-6. **Rate-limited wake-ups.** `refresh_vehicle_status` can't be called in a loop to drain the 12V battery.
-7. **Secrets stay out of output.** Tools never return the password, PIN or tokens, and configuration is redacted when printed. Errors from Bluelink are reported as fixed messages with the error type, not the raw response; details go to the log at debug level. The token cache is written with mode `0600` and doesn't contain the password or PIN.
-8. **No login loops.** After Bluelink rejects a login or asks for a one-time passcode, the server discards the token cache and doesn't try again for `BLUELINK_LOGIN_RETRY_MINUTES`, so a wrong or changed password can't get the account locked.
-9. **Unlock picks the car exactly.** With several cars on the account, `unlock_vehicle` needs the exact name, VIN or ID; part of a name isn't enough.
-10. **Unlock asks you, on the server side.** Clients that support MCP elicitation show you a question from the server, and nothing is unlocked unless you say yes. With other clients, the assistant has to call again with the car's name or VIN ending in `confirm`, after checking with you. That second step can't stop a model that ignores its instructions, so keep your client's approval prompt on as well. See [Unlocking](usage.md#unlocking).
-11. **Rate-limited commands.** The same command can't be sent to the same car again within `BLUELINK_MIN_COMMAND_SECONDS` (60), so a looping assistant can't flood the car or the account's daily API quota.
+2. **Location is off by default.** `get_vehicle_location` isn't registered unless `BLUELINK_ALLOW_LOCATION=true`, and no other tool returns the car's position. When it's on, coordinates are rounded to `BLUELINK_LOCATION_PRECISION` decimal places (4, about 10 m).
+3. **Unlock has its own switch.** `unlock_vehicle` also needs `BLUELINK_ALLOW_UNLOCK=true`. Locking, climate and charging are useful day to day, and unlocking rarely is, so most people should leave it off.
+4. **Tool annotations.** Tools are marked read-only, or destructive for unlock, so clients that support annotations, such as Claude Code, ask before running commands unless you've allowed them.
+5. **Bearer token for HTTP.** The server won't start in HTTP mode without `MCP_AUTH_TOKEN`, and the token is compared in constant time. Only `/health` is open.
+6. **DNS rebinding protection.** Set `MCP_ALLOWED_HOSTS` to reject requests with unexpected `Host` headers, and `MCP_ALLOWED_ORIGINS` to list the browser origins allowed to call the server; other origins are rejected.
+7. **Rate-limited wake-ups.** `refresh_vehicle_status` can't be called in a loop to drain the 12V battery.
+8. **Secrets stay out of output.** Tools never return the password, PIN or tokens, and configuration is redacted when printed. Errors from Bluelink are reported as fixed messages with the error type, not the raw response; details go to the log at debug level. The token cache is written with mode `0600` and doesn't contain the password or PIN.
+9. **No login loops.** After Bluelink rejects a login or asks for a one-time passcode, the server discards the token cache and doesn't try again for `BLUELINK_LOGIN_RETRY_MINUTES`, so a wrong or changed password can't get the account locked.
+10. **Unlock picks the car exactly.** With several cars on the account, `unlock_vehicle` needs the exact name, VIN or ID; part of a name isn't enough.
+11. **Unlock asks you, on the server side.** Clients that support MCP elicitation show you a question from the server, and nothing is unlocked unless you say yes. With other clients, the assistant has to call again with the car's name or VIN ending in `confirm`, after checking with you. That second step can't stop a model that ignores its instructions, so keep your client's approval prompt on as well. See [Unlocking](usage.md#unlocking).
+12. **Rate-limited commands.** The same command can't be sent to the same car again within `BLUELINK_MIN_COMMAND_SECONDS` (60), so a looping assistant can't flood the car or the account's daily API quota.
 
 ## Prompt injection
 
@@ -48,6 +49,7 @@ To limit the impact:
 | You want to | Settings |
 |---|---|
 | Ask about the car | Defaults. Nothing else needed. |
+| Also ask where it is | `BLUELINK_ALLOW_LOCATION=true` (and lower `BLUELINK_LOCATION_PRECISION` if you don't need it to the street) |
 | Pre-heat and manage charging | `BLUELINK_ALLOW_WRITES=true` |
 | Everything, including unlock | `BLUELINK_ALLOW_WRITES=true`, `BLUELINK_ALLOW_UNLOCK=true`, stdio or a VPN only, and approve each call |
 
@@ -57,6 +59,7 @@ To limit the impact:
 - [ ] `MCP_AUTH_TOKEN` is long and random (`openssl rand -hex 32`)
 - [ ] The HTTP port isn't reachable from the internet, or is behind TLS
 - [ ] `BLUELINK_ALLOW_UNLOCK` is off unless you need it
+- [ ] `BLUELINK_ALLOW_LOCATION` is off unless you need it
 - [ ] Your client asks before running command tools
 - [ ] You know how to change your Bluelink or Kia Connect password if something leaks
 

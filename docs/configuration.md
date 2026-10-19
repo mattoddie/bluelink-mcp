@@ -22,7 +22,7 @@ The variables all start with `BLUELINK_`, whatever the brand. For a Kia, use you
 | `BLUELINK_REGION` | `europe` | Which regional service to use. See [Choosing a region](#choosing-a-region). |
 | `BLUELINK_BRAND` | `hyundai` | Which car maker's service to use: `hyundai` (Bluelink), `kia` (Kia Connect, formerly UVO) or `genesis` (Genesis Connect) |
 | `BLUELINK_LANGUAGE` | `en` | Language for the service's responses (Europe only), such as `en`, `de`, `fr`, `nl` |
-| `BLUELINK_GEOCODE` | `false` | Look up a street address for the car's location with OpenStreetMap. This sends the car's coordinates to OpenStreetMap's Nominatim service. |
+| `BLUELINK_GEOCODE` | `false` | Look up a street address for the car's location with OpenStreetMap. This sends the car's full coordinates to OpenStreetMap's Nominatim service. Needs `BLUELINK_ALLOW_LOCATION=true`; the server refuses to start otherwise. |
 
 ## Choosing a region
 
@@ -45,6 +45,8 @@ The region must match where your account was created, not where the car is now. 
 | Variable | Default | Description |
 |---|---|---|
 | `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools: lock, climate, charging, charge limits and hazard lights |
+| `BLUELINK_ALLOW_LOCATION` | `false` | Register `get_vehicle_location`, which tells the assistant where the car is. Off by default, because the location reveals where you live, work and park. Other tools never return the location. |
+| `BLUELINK_LOCATION_PRECISION` | `4` | How many decimal places of latitude and longitude `get_vehicle_location` returns, from `0` to `15`. `4` is about 10 m, enough to find the car; `3` is about 100 m, `2` about 1 km. The street address from `BLUELINK_GEOCODE` isn't rounded. |
 | `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle`. Needs `BLUELINK_ALLOW_WRITES=true`; the server refuses to start otherwise. Each unlock also needs your confirmation; see [Unlocking](usage.md#unlocking). |
 
 Tools that aren't allowed are **not registered at all**, so the assistant can't see them, let alone call them. The [tool reference](tools.md) shows which setting each tool needs.
@@ -96,13 +98,14 @@ BLUELINK_PIN=1234
 MCP_AUTH_TOKEN=3f9c...   # openssl rand -hex 32
 ```
 
-**Commands on, US Hyundai, with addresses:**
+**Commands on, US Hyundai, with location and addresses:**
 
 ```sh
 BLUELINK_USERNAME=you@example.com
 BLUELINK_PASSWORD=your-password
 BLUELINK_PIN=1234
 BLUELINK_REGION=usa
+BLUELINK_ALLOW_LOCATION=true
 BLUELINK_GEOCODE=true
 BLUELINK_ALLOW_WRITES=true
 ```

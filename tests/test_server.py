@@ -147,7 +147,7 @@ def test_status_and_token_cache(tmp_path):
 def test_status_is_cached_briefly(tmp_path):
     server, _ = make(tmp_path)
     call(server, "get_vehicle_status")
-    call(server, "get_vehicle_location")
+    call(server, "get_energy_usage")
     assert FakeManager.instances[-1].calls.count(("cached", "v1")) == 1
 
 
@@ -160,10 +160,42 @@ def test_force_refresh_is_rate_limited(tmp_path):
 
 
 def test_location(tmp_path):
-    server, _ = make(tmp_path)
+    server, _ = make(tmp_path, BLUELINK_ALLOW_LOCATION="true")
     data, _ = call(server, "get_vehicle_location")
     assert (data["latitude"], data["longitude"]) == (51.5, -0.12)
     assert "openstreetmap.org" in data["map"]
+
+
+def test_location_is_off_by_default(tmp_path):
+    server, _ = make(tmp_path)
+    assert "get_vehicle_location" not in tool_names(server)
+    data, _ = call(server, "get_vehicle_status")
+    assert "51.5" not in json.dumps(data)
+    with pytest.raises(ConfigError, match="BLUELINK_GEOCODE needs BLUELINK_ALLOW_LOCATION"):
+        Config.from_env({**ENV, "BLUELINK_GEOCODE": "true"})
+
+
+@pytest.mark.parametrize(
+    ("precision", "expected"),
+    [(None, (51.5012, -0.1235)), ("2", (51.5, -0.12)), ("0", (52, 0)), ("6", (51.501234, -0.123456))],
+)
+def test_location_precision(tmp_path, precision, expected):
+    class PreciseManager(FakeManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.vehicles["v1"].location = (51.50123449, -0.12345649, dt.datetime(2026, 10, 15, 8, 0))
+
+    extra = {"BLUELINK_LOCATION_PRECISION": precision} if precision is not None else {}
+    server, _ = make(tmp_path, factory=PreciseManager, BLUELINK_ALLOW_LOCATION="true", **extra)
+    data, _ = call(server, "get_vehicle_location")
+    assert (data["latitude"], data["longitude"]) == expected
+    assert f"mlat={expected[0]}&mlon={expected[1]}" in data["map"]
+
+
+@pytest.mark.parametrize("precision", ["-1", "16", "four"])
+def test_location_precision_is_validated(precision):
+    with pytest.raises(ConfigError, match="BLUELINK_LOCATION_PRECISION"):
+        Config.from_env({**ENV, "BLUELINK_LOCATION_PRECISION": precision})
 
 
 def test_lock_waits_for_confirmation(tmp_path):
