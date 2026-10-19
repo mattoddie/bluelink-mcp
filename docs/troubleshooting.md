@@ -1,6 +1,8 @@
 # Troubleshooting
 
-Start with the logs: `docker compose logs bluelink-mcp`, or your MCP client's server log for stdio (in Claude Code, `claude --debug`). Logs go to stderr and never include your password or tokens.
+Start with the logs: `docker compose logs bluelink-mcp`, or your MCP client's server log for stdio (in Claude Code, `claude --debug`). Logs go to stderr. At the default level (`LOG_LEVEL=info`) they don't include your password, tokens or Bluelink's responses.
+
+For more detail, set `LOG_LEVEL=debug` and restart. Debug logs include the Bluelink library's own logging, which contains whole requests and responses with session tokens, your VIN and the car's location. Only turn it on while you need it, and redact the output before sharing it.
 
 - [The server won't start](#the-server-wont-start)
 - [Login fails](#login-fails)
@@ -24,7 +26,7 @@ Start with the logs: `docker compose logs bluelink-mcp`, or your MCP client's se
 
 ## Login fails
 
-The tool returns *"Could not log in to Bluelink: ..."*, with a short reason and the error type, such as `(AuthenticationError)`. For the full error, run the server with debug logging.
+The tool returns *"Could not log in to Bluelink: ..."*, with a short reason and the error type, such as `(AuthenticationError)`. For the full error, run the server with `LOG_LEVEL=debug`.
 
 After Bluelink rejects a login or asks for a one-time passcode, the server waits `BLUELINK_LOGIN_RETRY_MINUTES` (5) before trying again, and until then tools answer *"Logging in to Bluelink failed ... min ago"*. This protects the account from being locked by repeated attempts. Restarting the server clears the wait. Network errors (*"Could not reach Bluelink to log in"*) don't start the wait, because Bluelink never saw the attempt.
 

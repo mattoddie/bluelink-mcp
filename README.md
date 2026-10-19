@@ -103,6 +103,7 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 | `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | Wait after Bluelink rejects a login before trying again |
 | `BLUELINK_TOKEN_FILE` | `~/.local/state/bluelink-mcp/token.json` (`/data/token.json` in Docker) | Login token cache. Set it empty to turn caching off. |
 | `MCP_TRANSPORT` | `stdio` (`http` in Docker) | `stdio` or `http` |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warning` or `error` |
 | `MCP_HTTP_HOST`, `MCP_HTTP_PORT` | `127.0.0.1`, `8080` | HTTP listen address |
 | `MCP_AUTH_TOKEN` | | Bearer token clients must send (at least 16 characters). Required for `http`. |
 | `MCP_ALLOWED_HOSTS` | | Optional Host header allow-list for DNS rebinding protection |

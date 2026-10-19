@@ -77,6 +77,7 @@ The server always uses the password and PIN you configured, so after changing yo
 | Variable | Default | Description |
 |---|---|---|
 | `MCP_TRANSPORT` | `stdio`; `http` in the Docker image | `stdio` or `http` (Streamable HTTP) |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warning` or `error`. Logs go to stderr. `debug` also shows the Bluelink library's logging, which includes tokens, the VIN and the location; see [Troubleshooting](troubleshooting.md). |
 | `MCP_HTTP_HOST` | `127.0.0.1`; `0.0.0.0` in the Docker image | Address to listen on |
 | `MCP_HTTP_PORT` | `8080` | Port to listen on |
 | `MCP_AUTH_TOKEN` | | Bearer token clients must send. **Required** for `http`, and at least 16 characters; the server refuses to start otherwise. Generate one with `openssl rand -hex 32`. Or use `MCP_AUTH_TOKEN_FILE`. |

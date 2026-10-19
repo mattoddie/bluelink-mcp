@@ -84,7 +84,7 @@ def explain(ex: BaseException) -> str:
     _LOGGER.debug("Bluelink error", exc_info=ex)
     message = next(
         (text for kind, text in _EXPLANATIONS if isinstance(ex, kind)),
-        "Unexpected error; run the server with debug logging for details.",
+        "Unexpected error; run the server with LOG_LEVEL=debug for details.",
     )
     return f"{message} ({type(ex).__name__})"
 

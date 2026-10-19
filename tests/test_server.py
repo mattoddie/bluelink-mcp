@@ -1,5 +1,6 @@
 import datetime as dt
 import json
+import logging
 import os
 import stat
 import threading
@@ -14,7 +15,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from bluelink_mcp.__main__ import MAX_BODY_BYTES, healthcheck_url, http_app, transport_security
 from bluelink_mcp.client import BluelinkClient, check_supported
-from bluelink_mcp.config import Config, ConfigError
+from bluelink_mcp.config import Config, ConfigError, log_level
 from bluelink_mcp.server import build_server
 
 
@@ -736,3 +737,21 @@ def test_secrets_can_come_from_files(tmp_path):
 )
 def test_healthcheck_url(env, url):
     assert healthcheck_url(env) == url
+
+
+@pytest.mark.parametrize(
+    ("raw", "level", "library"),
+    [
+        (None, logging.INFO, logging.CRITICAL + 1),
+        ("warning", logging.WARNING, logging.CRITICAL + 1),
+        ("ERROR", logging.ERROR, logging.CRITICAL + 1),
+        ("debug", logging.DEBUG, logging.DEBUG),
+    ],
+)
+def test_log_level(raw, level, library):
+    assert log_level({} if raw is None else {"LOG_LEVEL": raw}) == (level, library)
+
+
+def test_log_level_is_validated():
+    with pytest.raises(ConfigError, match="LOG_LEVEL must be one of"):
+        log_level({"LOG_LEVEL": "verbose"})

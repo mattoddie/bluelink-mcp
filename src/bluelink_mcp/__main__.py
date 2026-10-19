@@ -19,7 +19,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from . import __version__
 from .client import check_supported
-from .config import Config, ConfigError
+from .config import Config, ConfigError, log_level
 from .server import build_server
 
 # The largest request body accepted on /mcp.
@@ -243,8 +243,13 @@ def main() -> None:
     if sys.argv[1:]:
         sys.exit("usage: bluelink-mcp [healthcheck]")
 
+    try:
+        level, library_level = log_level(dict(os.environ))
+    except ConfigError as ex:
+        sys.exit(f"bluelink-mcp: {ex}")
     # stdout carries the protocol in stdio mode, so logs go to stderr.
-    logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(level=level, stream=sys.stderr, format="%(levelname)s %(name)s: %(message)s")
+    logging.getLogger("hyundai_kia_connect_api").setLevel(library_level)
     try:
         config = Config.from_env()
         check_supported(config)

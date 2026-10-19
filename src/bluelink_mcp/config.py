@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -69,6 +70,27 @@ MIN_AUTH_TOKEN_LENGTH = 16
 
 def _list(env: dict[str, str], name: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in env.get(name, "").split(",") if item.strip())
+
+
+LOG_LEVELS = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+}
+
+
+def log_level(env: dict[str, str]) -> tuple[int, int]:
+    """The log level from LOG_LEVEL, and the level for hyundai_kia_connect_api's loggers.
+
+    The library logs whole Bluelink requests and responses (tokens, VIN, location), some
+    of them at ERROR, so it is heard from only when LOG_LEVEL=debug.
+    """
+    raw = env.get("LOG_LEVEL", "").strip().lower() or "info"
+    if raw not in LOG_LEVELS:
+        raise ConfigError(f"LOG_LEVEL must be one of {', '.join(LOG_LEVELS)}, not {raw!r}")
+    level = LOG_LEVELS[raw]
+    return level, logging.DEBUG if level == logging.DEBUG else logging.CRITICAL + 1
 
 
 def _default_state_dir() -> Path:
