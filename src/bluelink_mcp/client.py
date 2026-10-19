@@ -146,20 +146,29 @@ class BluelinkClient:
             _LOGGER.warning("Ignoring token cache %s: %s", path, type(ex).__name__)
             return None
         # The library falls back to a password login with the token's own copy of the
-        # password and PIN. After a password change, a stale copy would fail every time
-        # and risk locking the account, so always use the configured ones. The cache is
-        # rewritten with them on the next save.
+        # password and PIN. The cache doesn't store them (older versions did, and a
+        # stale copy would fail every time and risk locking the account), so always use
+        # the configured ones. A cache that still holds them is rewritten without them
+        # on the next save, because it then differs from what would be written.
         token.password = self._config.password
         token.pin = self._config.pin
         self._saved_token = data
         return token
+
+    @staticmethod
+    def _cache_data(token: Token) -> dict:
+        """The token as stored on disk: everything except the password and PIN."""
+        data = token.to_dict()
+        data["password"] = None
+        data["pin"] = None
+        return data
 
     def _save_token(self) -> None:
         path: Path | None = self._config.token_file
         token = getattr(self._manager, "token", None)
         if path is None or not isinstance(token, Token):
             return
-        data = token.to_dict()
+        data = self._cache_data(token)
         if data == self._saved_token:
             return
         tmp: str | None = None

@@ -34,7 +34,7 @@ The image:
 
 The volume at `/data` holds `token.json`, the cached Bluelink login. Keep it: without it, every restart logs in again, and frequent logins can get a Bluelink account temporarily blocked.
 
-The file contains your session tokens, password and PIN. Don't back it up anywhere less safe than your `.env`.
+The file contains your session tokens, which work like a login until they expire, but not your password or PIN. Don't back it up anywhere less safe than your `.env`.
 
 ## Image tags
 

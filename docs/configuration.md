@@ -65,9 +65,9 @@ See [Cached and live data](usage.md#cached-and-live-data) for what these mean in
 | `BLUELINK_TOKEN_FILE` | `$XDG_STATE_HOME/bluelink-mcp/token.json` (usually `~/.local/state/bluelink-mcp/token.json`); `/data/token.json` in the Docker image | Where to cache the Bluelink login. Set it to an empty value to turn caching off. |
 | `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | After a failed login, how long to wait before trying again. Until then, tools return an error without contacting Bluelink. `0` turns the wait off. |
 
-Bluelink can temporarily block accounts that log in too often, so the server saves its session and reuses it until it expires, then refreshes it. The file is written with mode `0600`. It contains session tokens and, because the library needs them to log in again, your **password and PIN**, so protect it like a password. A cache written for a different username, or one that can't be read, is ignored.
+Bluelink can temporarily block accounts that log in too often, so the server saves its session and reuses it until it expires, then refreshes it. The file is written with mode `0600`. It contains session tokens (but not your password or PIN), which are enough to use your Bluelink account until they expire, so protect it like a password. A cache written for a different username, or one that can't be read, is ignored.
 
-The password and PIN in the cache are always replaced with the ones you configured, so after changing your password you only need to update `BLUELINK_PASSWORD` and restart. If a login is rejected, the server deletes the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before logging in again, so a wrong password can't lock the account by retrying on every request.
+The server always uses the password and PIN you configured, so after changing your password you only need to update `BLUELINK_PASSWORD` and restart. A cache written by an older version that still holds the password and PIN is rewritten without them. If a login is rejected, the server deletes the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before logging in again, so a wrong password can't lock the account by retrying on every request.
 
 ## MCP transport
 

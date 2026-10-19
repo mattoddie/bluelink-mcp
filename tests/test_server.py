@@ -40,6 +40,9 @@ class FakeManager:
             self.calls.append(("login",))
             self.token = Token(
                 username=self.kwargs["username"],
+                # Like the library, the token carries the password and PIN.
+                password=self.kwargs["password"],
+                pin=self.kwargs["pin"],
                 access_token="abc",
                 valid_until=dt.datetime(2030, 1, 1, tzinfo=dt.UTC),
             )
@@ -130,6 +133,10 @@ def test_status_and_token_cache(tmp_path):
     saved = json.loads(config.token_file.read_text())
     assert saved["access_token"] == "abc"
     assert stat.S_IMODE(os.stat(config.token_file).st_mode) == 0o600
+    # The password and PIN are never written to disk.
+    assert (saved["password"], saved["pin"]) == (None, None)
+    assert "secret" not in config.token_file.read_text()
+    assert "1234" not in config.token_file.read_text()
 
     # A second server reuses the cached token instead of logging in again.
     server2, _ = make(tmp_path)
@@ -210,9 +217,11 @@ def test_cached_token_gets_the_configured_password_and_pin(tmp_path):
     call(server, "list_vehicles")
     token = FakeManager.instances[-1].kwargs["token"]
     assert (token.access_token, token.password, token.pin) == ("cached", "secret", "1234")
-    # The cache is rewritten with the current credentials.
+    # A cache from an older version is rewritten without the password and PIN.
     saved = json.loads(config.token_file.read_text())
-    assert (saved["password"], saved["pin"]) == ("secret", "1234")
+    assert (saved["password"], saved["pin"]) == (None, None)
+    assert saved["access_token"] == "cached"
+    assert "old-password" not in config.token_file.read_text()
 
 
 class RejectingManager(FakeManager):
