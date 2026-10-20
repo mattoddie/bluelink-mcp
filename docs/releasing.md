@@ -26,7 +26,7 @@ The version comes **from the tag**. `pyproject.toml` stays at `0.0.0.dev0` in th
 ## Release checklist
 
 1. **Check `main` is green** on [CI](https://github.com/mattoddie/bluelink-mcp/actions/workflows/ci.yml).
-2. **Update the changelog.** In a small PR, move the **Unreleased** entries in [`CHANGELOG.md`](../CHANGELOG.md) under a new heading, `## [1.2.0] - YYYY-MM-DD`, and update the comparison links at the bottom. Fill in the final tool count from the top of [`docs/tools.md`](tools.md). Merge it.
+2. **Update the changelog.** In a small PR titled `chore(release): v1.2.0`, move the **Unreleased** entries in [`CHANGELOG.md`](../CHANGELOG.md) under a new heading, `## [1.2.0] - YYYY-MM-DD`, and update the comparison links at the bottom. Fill in the final tool count from the top of [`docs/tools.md`](tools.md). Merge it.
 3. **Publish the release.** Use either the CLI or the web UI.
 
    With the CLI:

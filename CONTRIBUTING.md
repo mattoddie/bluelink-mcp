@@ -53,7 +53,7 @@ See [docs/development.md](docs/development.md) for the architecture and a walkth
    ```
 
 4. **Update the docs.** If you changed tools, run `uv run python scripts/gen_tool_docs.py`. Update `README.md` or `docs/` if behaviour changed, and add a line under **Unreleased** in [CHANGELOG.md](CHANGELOG.md) for anything users will notice.
-5. **Open a pull request** against `main` and fill in the template.
+5. **Open a pull request** against `main` with a [Conventional Commits](#commit-messages) title, and fill in the template.
 
 ## Pull request guidelines
 
@@ -66,9 +66,13 @@ See [docs/development.md](docs/development.md) for the architecture and a walkth
 
 ## Commit messages
 
-- Use the imperative mood with a subject of 72 characters or fewer, for example *"Add charging schedule tool"* or *"Fix climate temperature rounding"*.
-- Add a body that explains **why** when it isn't obvious.
-- Reference issues with `Fixes #123` where relevant.
+Commits and pull request titles follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). Pull requests are squash-merged, so the PR title becomes the commit on `main`, and a check fails the pull request if its title doesn't match.
+
+- **Format:** `<type>(<optional scope>)<optional !>: <description>`, for example `feat: add charging schedule tool`, `fix: round climate temperatures correctly`, `docs: explain the TLS choice` or `build(deps): bump python from 3.14 to 3.15`.
+- **Types:** `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build` (dependencies, Dockerfile and toolchain), `ci` (workflows), `chore` (anything else, such as `chore(release): v1.2.0`), `revert` and `style`.
+- **Description:** imperative mood, lower-case first word and no trailing full stop. Keep the whole subject to 72 characters or fewer.
+- **Breaking changes:** add `!` after the type or scope **and** a `BREAKING CHANGE: …` footer in the body or PR description, and label the pull request `breaking`.
+- **Body:** explain **why** when it isn't obvious, and reference issues with `Fixes #123`.
 
 ## Adding or changing tools
 
@@ -85,7 +89,7 @@ Changing an existing tool's name or arguments in an incompatible way, or moving 
 
 ## Releases
 
-Releases are made by maintainers by publishing a GitHub release. That triggers the workflow that builds and pushes the Docker image. See [docs/releasing.md](docs/releasing.md).
+Releases are made by maintainers by publishing a GitHub release. That triggers the workflow that builds and pushes the Docker image. The changelog update for a release goes in a small pull request titled `chore(release): vX.Y.Z`. See [docs/releasing.md](docs/releasing.md).
 
 ## Getting help
 
