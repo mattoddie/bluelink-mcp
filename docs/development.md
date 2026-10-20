@@ -82,7 +82,7 @@ BLUELINK_USERNAME=... BLUELINK_PASSWORD=... BLUELINK_PIN=... \
 
 Go easy on `refresh_vehicle_status` and commands while developing. Every refresh wakes the car, and Bluelink limits API calls per day.
 
-To see the library's requests, set Python logging to debug for `hyundai_kia_connect_api`. Never paste that output publicly: it contains tokens and your car's VIN and location.
+To see the library's requests, run the server with `LOG_LEVEL=debug`. Never paste that output publicly: it contains tokens and your car's VIN and location.
 
 ## The website
 

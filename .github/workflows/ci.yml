@@ -37,6 +37,22 @@ jobs:
       - name: Check docs/tools.md is up to date
         run: uv run python scripts/gen_tool_docs.py --check
 
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+      # Checks every package in uv.lock (with its hashes) against the PyPI and OSV advisories.
+      - name: pip-audit
+        run: |
+          uv export --locked --no-emit-project --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
+          uvx --from pip-audit==2.10.1 pip-audit --disable-pip --require-hashes -r "$RUNNER_TEMP/requirements.txt"
+
   docker:
     name: Docker image
     runs-on: ubuntu-latest
@@ -59,19 +75,23 @@ jobs:
 
       - name: Smoke test
         run: |
+          token=$(openssl rand -hex 16)
           docker run -d --name smoke -p 8080:8080 \
-            -e BLUELINK_USERNAME=ci@example.com -e BLUELINK_PASSWORD=ci -e MCP_AUTH_TOKEN=ci \
+            -e BLUELINK_USERNAME=ci@example.com -e BLUELINK_PASSWORD=ci -e MCP_AUTH_TOKEN="$token" \
             bluelink-mcp:ci
           for i in $(seq 1 30); do curl -fsS http://localhost:8080/health && break; sleep 1; done
           echo
           tools=$(curl -fsS -X POST http://localhost:8080/mcp \
-            -H 'Authorization: Bearer ci' -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
             -H 'Accept: application/json, text/event-stream' \
             -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | sed -n 's/^data: //; /^{/p' | jq '.result.tools | length')
           echo "Tools registered: $tools"
           test "$tools" -gt 0
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8080/mcp -d '{}')
           test "$code" = 401
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/mcp -H "Authorization: Bearer $token")
+          test "$code" = 405
+          docker exec smoke bluelink-mcp healthcheck
           docker logs smoke
           docker rm -f smoke
 

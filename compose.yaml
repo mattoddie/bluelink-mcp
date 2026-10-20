@@ -9,6 +9,8 @@ services:
     restart: unless-stopped
     env_file: .env
     ports:
+      # Reachable from other machines. If clients run on this host or reach it through
+      # a reverse proxy here, publish on loopback only instead: "127.0.0.1:8080:8080"
       - "8080:8080"
     volumes:
       # Keeps the login token across restarts, to avoid repeated logins.

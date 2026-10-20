@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -45,8 +46,51 @@ def _int(env: dict[str, str], name: str, default: int) -> int:
         raise ConfigError(f"{name} must be a whole number, not {raw!r}") from None
 
 
+def _secret(env: dict[str, str], name: str) -> str:
+    """A secret from NAME, or from the file NAME_FILE names (for Docker secrets).
+
+    Only the trailing line break of a file is removed, so a password can still end in a space.
+    """
+    file = env.get(f"{name}_FILE", "").strip()
+    if not file:
+        return env.get(name, "")
+    if env.get(name):
+        raise ConfigError(f"Set {name} or {name}_FILE, not both")
+    try:
+        return Path(file).expanduser().read_text().rstrip("\r\n")
+    except OSError as ex:
+        raise ConfigError(
+            f"Could not read {name}_FILE ({file}): {ex.strerror or type(ex).__name__}"
+        ) from None
+
+
+# Shorter bearer tokens could be guessed.
+MIN_AUTH_TOKEN_LENGTH = 16
+
+
 def _list(env: dict[str, str], name: str) -> tuple[str, ...]:
     return tuple(item.strip() for item in env.get(name, "").split(",") if item.strip())
+
+
+LOG_LEVELS = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+}
+
+
+def log_level(env: dict[str, str]) -> tuple[int, int]:
+    """The log level from LOG_LEVEL, and the level for hyundai_kia_connect_api's loggers.
+
+    The library logs whole Bluelink requests and responses (tokens, VIN, location), some
+    of them at ERROR, so it is heard from only when LOG_LEVEL=debug.
+    """
+    raw = env.get("LOG_LEVEL", "").strip().lower() or "info"
+    if raw not in LOG_LEVELS:
+        raise ConfigError(f"LOG_LEVEL must be one of {', '.join(LOG_LEVELS)}, not {raw!r}")
+    level = LOG_LEVELS[raw]
+    return level, logging.DEBUG if level == logging.DEBUG else logging.CRITICAL + 1
 
 
 def _default_state_dir() -> Path:
@@ -63,10 +107,13 @@ class Config:
     brand: int = BRANDS["hyundai"]
     language: str = "en"
     geocode: bool = False
+    allow_location: bool = False
+    location_precision: int = 4
     token_file: Path | None = None
     allow_writes: bool = False
     allow_unlock: bool = False
     min_refresh_minutes: int = 10
+    min_command_seconds: int = 60
     login_retry_minutes: int = 5
     cache_max_age_seconds: int = 60
     transport: str = "stdio"
@@ -81,9 +128,11 @@ class Config:
         env = dict(os.environ if env is None else env)
 
         username = env.get("BLUELINK_USERNAME", "").strip()
-        password = env.get("BLUELINK_PASSWORD", "")
+        password = _secret(env, "BLUELINK_PASSWORD")
         if not username or not password:
-            raise ConfigError("BLUELINK_USERNAME and BLUELINK_PASSWORD must be set")
+            raise ConfigError(
+                "BLUELINK_USERNAME and BLUELINK_PASSWORD (or BLUELINK_PASSWORD_FILE) must be set"
+            )
 
         region_name = env.get("BLUELINK_REGION", "europe").strip().lower()
         if region_name not in REGIONS:
@@ -108,10 +157,36 @@ class Config:
         if allow_unlock and not allow_writes:
             raise ConfigError("BLUELINK_ALLOW_UNLOCK needs BLUELINK_ALLOW_WRITES=true too")
 
+        allow_location = _bool(env, "BLUELINK_ALLOW_LOCATION")
+        geocode = _bool(env, "BLUELINK_GEOCODE")
+        if geocode and not allow_location:
+            # Geocoding sends the car's coordinates to OpenStreetMap, for a tool that isn't there.
+            raise ConfigError("BLUELINK_GEOCODE needs BLUELINK_ALLOW_LOCATION=true too")
+        location_precision = _int(env, "BLUELINK_LOCATION_PRECISION", 4)
+        if not 0 <= location_precision <= 15:
+            raise ConfigError("BLUELINK_LOCATION_PRECISION must be between 0 and 15 decimal places")
+
+        auth_token = _secret(env, "MCP_AUTH_TOKEN").strip()
+        if transport == "http" and auth_token and len(auth_token) < MIN_AUTH_TOKEN_LENGTH:
+            raise ConfigError(
+                f"MCP_AUTH_TOKEN must be at least {MIN_AUTH_TOKEN_LENGTH} characters; "
+                "generate one with: openssl rand -hex 32"
+            )
+
         hosts = _list(env, "MCP_ALLOWED_HOSTS")
         origins = _list(env, "MCP_ALLOWED_ORIGINS")
         if origins and not hosts:
             raise ConfigError("MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS too")
+
+        min_refresh_minutes = _int(env, "BLUELINK_MIN_REFRESH_MINUTES", 10)
+        if min_refresh_minutes < 1:
+            raise ConfigError(
+                "BLUELINK_MIN_REFRESH_MINUTES must be at least 1, to protect the car's 12V battery"
+            )
+
+        min_command_seconds = _int(env, "BLUELINK_MIN_COMMAND_SECONDS", 60)
+        if min_command_seconds < 0:
+            raise ConfigError("BLUELINK_MIN_COMMAND_SECONDS must not be negative")
 
         login_retry_minutes = _int(env, "BLUELINK_LOGIN_RETRY_MINUTES", 5)
         if login_retry_minutes < 0:
@@ -120,21 +195,24 @@ class Config:
         return cls(
             username=username,
             password=password,
-            pin=env.get("BLUELINK_PIN", "").strip(),
+            pin=_secret(env, "BLUELINK_PIN").strip(),
             region=REGIONS[region_name],
             brand=BRANDS[brand_name],
             language=env.get("BLUELINK_LANGUAGE", "en").strip() or "en",
-            geocode=_bool(env, "BLUELINK_GEOCODE"),
+            geocode=geocode,
+            allow_location=allow_location,
+            location_precision=location_precision,
             token_file=token_file,
             allow_writes=allow_writes,
             allow_unlock=allow_unlock,
-            min_refresh_minutes=_int(env, "BLUELINK_MIN_REFRESH_MINUTES", 10),
+            min_refresh_minutes=min_refresh_minutes,
+            min_command_seconds=min_command_seconds,
             login_retry_minutes=login_retry_minutes,
             cache_max_age_seconds=_int(env, "BLUELINK_CACHE_SECONDS", 60),
             transport=transport,
             http_host=env.get("MCP_HTTP_HOST", "127.0.0.1").strip() or "127.0.0.1",
             http_port=_int(env, "MCP_HTTP_PORT", 8080),
-            auth_token=env.get("MCP_AUTH_TOKEN", "").strip(),
+            auth_token=auth_token,
             allowed_hosts=hosts,
             allowed_origins=origins,
         )

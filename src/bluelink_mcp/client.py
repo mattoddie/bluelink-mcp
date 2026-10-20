@@ -84,7 +84,7 @@ def explain(ex: BaseException) -> str:
     _LOGGER.debug("Bluelink error", exc_info=ex)
     message = next(
         (text for kind, text in _EXPLANATIONS if isinstance(ex, kind)),
-        "Unexpected error; run the server with debug logging for details.",
+        "Unexpected error; run the server with LOG_LEVEL=debug for details.",
     )
     return f"{message} ({type(ex).__name__})"
 
@@ -117,6 +117,8 @@ class BluelinkClient:
         self._login_failed_at: float | None = None
         self._cache_updated: dict[str, float] = {}
         self._last_force_refresh: dict[str, float] = {}
+        # When each command was last sent to each car: (vehicle ID, command) -> time.
+        self._last_command: dict[tuple[str, str], float] = {}
         # Waiting for a command polls with the lock released between checks, and stays
         # under the 60-120 s request timeouts common in MCP clients.
         self._command_wait_seconds = command_wait_seconds
@@ -146,20 +148,29 @@ class BluelinkClient:
             _LOGGER.warning("Ignoring token cache %s: %s", path, type(ex).__name__)
             return None
         # The library falls back to a password login with the token's own copy of the
-        # password and PIN. After a password change, a stale copy would fail every time
-        # and risk locking the account, so always use the configured ones. The cache is
-        # rewritten with them on the next save.
+        # password and PIN. The cache doesn't store them (older versions did, and a
+        # stale copy would fail every time and risk locking the account), so always use
+        # the configured ones. A cache that still holds them is rewritten without them
+        # on the next save, because it then differs from what would be written.
         token.password = self._config.password
         token.pin = self._config.pin
         self._saved_token = data
         return token
+
+    @staticmethod
+    def _cache_data(token: Token) -> dict:
+        """The token as stored on disk: everything except the password and PIN."""
+        data = token.to_dict()
+        data["password"] = None
+        data["pin"] = None
+        return data
 
     def _save_token(self) -> None:
         path: Path | None = self._config.token_file
         token = getattr(self._manager, "token", None)
         if path is None or not isinstance(token, Token):
             return
-        data = token.to_dict()
+        data = self._cache_data(token)
         if data == self._saved_token:
             return
         tmp: str | None = None
@@ -216,16 +227,29 @@ class BluelinkClient:
                 )
             self._manager.check_and_refresh_token()
         except AuthenticationOTPRequired:
+            # The library logs in with the password whenever it has no token, and an OTP
+            # request leaves it without one. Without the backoff, every tool call would
+            # make another full password login, which is what gets accounts locked.
+            self._manager = None
+            self._login_failed_at = time.monotonic()
             raise BluelinkError(
                 "Bluelink asked for a one-time passcode. Log in once in the official app, then try again."
             ) from None
         except Exception as ex:
-            # Drop the session so the next call starts from a clean login, but not straight away.
+            # Drop the session so the next call starts from a clean login.
             self._manager = None
-            self._login_failed_at = time.monotonic()
             if isinstance(ex, AuthenticationError):
-                # The cached session is no good; don't keep retrying it.
+                # Bluelink rejected the login: the cached session is no good, and retrying
+                # straight away risks getting the account locked, so wait first.
+                self._login_failed_at = time.monotonic()
                 self._discard_token()
+            elif isinstance(ex, OSError):
+                # Bluelink was never reached, so there is nothing to protect the account from.
+                _LOGGER.debug("Bluelink login error", exc_info=ex)
+                raise BluelinkError(
+                    "Could not reach Bluelink to log in. Check the network connection and try again "
+                    f"({type(ex).__name__})."
+                ) from ex
             raise BluelinkError(f"Could not log in to Bluelink: {explain(ex)}") from ex
         self._login_failed_at = None
         self._save_token()
@@ -327,22 +351,59 @@ class BluelinkClient:
 
     # --- commands ------------------------------------------------------------
 
+    def _check_command_gap(self, v: Vehicle, name: str) -> None:
+        """Refuse to send the same command to the same car again too soon."""
+        min_gap = self._config.min_command_seconds
+        since = time.monotonic() - self._last_command.get((v.id, name), float("-inf"))
+        if since < min_gap:
+            wait = int(min_gap - since) + 1
+            raise BluelinkError(
+                f"{name} was sent to {v.name} {int(since)} s ago. To avoid flooding the car and "
+                f"Bluelink's daily API quota with repeated commands, wait about {wait} s before "
+                "sending it again, or check the earlier one with get_command_status."
+            )
+
+    def command_target(self, vehicle: str | None, name: str, exact: bool = False) -> Vehicle:
+        """The car a command would go to, after checking the command isn't rate limited."""
+
+        def run(m: Any) -> Vehicle:
+            v = self.resolve(m, vehicle, exact=exact)
+            self._check_command_gap(v, name)
+            return v
+
+        return self.call(run)
+
     def command(
         self,
         vehicle: str | None,
+        name: str,
         action: Callable[[Any, Vehicle], str | None],
         wait: bool,
         exact: bool = False,
     ) -> dict[str, Any]:
         """Send a remote command and, if asked, wait for the car to confirm it.
 
-        Only sending and each status check hold the lock, so other tools keep working
-        while the car takes its time to answer.
+        Each command (by name) is rate limited per car. Only sending and each status
+        check hold the lock, so other tools keep working while the car takes its time
+        to answer.
         """
 
         def send(m: Any) -> tuple[Vehicle, str | None]:
             v = self.resolve(m, vehicle, exact=exact)
-            action_id = action(m, v)
+            self._check_command_gap(v, name)
+            key = (v.id, name)
+            previous = self._last_command.get(key)
+            # Count the attempt even if it fails: a failed command may still have reached the car.
+            self._last_command[key] = time.monotonic()
+            try:
+                action_id = action(m, v)
+            except BluelinkError:
+                # Our own checks refused it before anything was sent.
+                if previous is None:
+                    self._last_command.pop(key, None)
+                else:
+                    self._last_command[key] = previous
+                raise
             # Commands change state, so the next status read must go back to Bluelink.
             self._cache_updated.pop(v.id, None)
             return v, action_id

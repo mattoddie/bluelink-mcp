@@ -39,7 +39,7 @@ It's built on [`hyundai_kia_connect_api`](https://github.com/Hyundai-Kia-Connect
 | `list_vehicles` | Vehicles on the account | |
 | `get_vehicle_status` | Last reported battery/fuel, range, charging, climate, locks, doors, windows, tyres, warnings and charging schedule. Doesn't wake the car. | |
 | `refresh_vehicle_status` | Wakes the car for live data. Rate limited (see below). | |
-| `get_vehicle_location` | Latitude/longitude, map link and optional address | |
+| `get_vehicle_location` | Latitude/longitude, map link and optional address | location |
 | `get_trips` | A day's trips, or a month's summary | |
 | `get_energy_usage` | Daily energy use for driving, climate, electronics and battery care | |
 | `get_command_status` | Result of an earlier command | |
@@ -83,7 +83,7 @@ Then ask *"How's the car doing?"*
 
 ## Configuration
 
-All settings are environment variables; [`example.env`](example.env) lists and explains them.
+All settings are environment variables; [`example.env`](example.env) lists and explains them. `BLUELINK_PASSWORD`, `BLUELINK_PIN` and `MCP_AUTH_TOKEN` can also be read from files with `BLUELINK_PASSWORD_FILE`, `BLUELINK_PIN_FILE` and `MCP_AUTH_TOKEN_FILE`.
 
 | Variable | Default | |
 | --- | --- | --- |
@@ -92,16 +92,20 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 | `BLUELINK_REGION` | `europe` | `europe`, `europe-cci`, `usa`, `canada`, `australia`, `nz`, `india`, `china`, `brazil` |
 | `BLUELINK_BRAND` | `hyundai` | `hyundai` (Bluelink), `kia` (Kia Connect / UVO), `genesis` (Genesis Connect) |
 | `BLUELINK_LANGUAGE` | `en` | Response language (Europe) |
-| `BLUELINK_GEOCODE` | `false` | Add a street address to the location via OpenStreetMap |
+| `BLUELINK_ALLOW_LOCATION` | `false` | Register `get_vehicle_location` |
+| `BLUELINK_LOCATION_PRECISION` | `4` | Decimal places of latitude/longitude to return (4 is about 10 m) |
+| `BLUELINK_GEOCODE` | `false` | Add a street address to the location via OpenStreetMap (needs location) |
 | `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools |
 | `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle` (needs writes) |
 | `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum gap between `refresh_vehicle_status` calls per car |
+| `BLUELINK_MIN_COMMAND_SECONDS` | `60` | Minimum gap before sending the same command to the same car again |
 | `BLUELINK_CACHE_SECONDS` | `60` | How long a status read is reused |
-| `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | Wait after a failed login before trying again |
+| `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | Wait after Bluelink rejects a login before trying again |
 | `BLUELINK_TOKEN_FILE` | `~/.local/state/bluelink-mcp/token.json` (`/data/token.json` in Docker) | Login token cache. Set it empty to turn caching off. |
 | `MCP_TRANSPORT` | `stdio` (`http` in Docker) | `stdio` or `http` |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warning` or `error` |
 | `MCP_HTTP_HOST`, `MCP_HTTP_PORT` | `127.0.0.1`, `8080` | HTTP listen address |
-| `MCP_AUTH_TOKEN` | | Bearer token clients must send. Required for `http`. |
+| `MCP_AUTH_TOKEN` | | Bearer token clients must send (at least 16 characters). Required for `http`. |
 | `MCP_ALLOWED_HOSTS` | | Optional Host header allow-list for DNS rebinding protection |
 | `MCP_ALLOWED_ORIGINS` | | Origins browser-based clients may use, when `MCP_ALLOWED_HOSTS` is set |
 
@@ -115,12 +119,12 @@ Not every brand is available everywhere. New Zealand is Kia only, Brazil is Hyun
 
 - **Reads come from Bluelink, not the car.** `get_vehicle_status` returns what the car last uploaded, which happens when it is switched off, while charging and after commands. Check `last_updated_at`.
 - **Waking the car costs something.** `refresh_vehicle_status` makes the car's modem report in. Done often, this drains the 12V battery, and Hyundai and Kia limit API calls per day in Europe. It is rate limited per car (`BLUELINK_MIN_REFRESH_MINUTES`).
-- **Logins are cached.** Repeated password logins can get an account temporarily blocked, so the server keeps the token in `BLUELINK_TOKEN_FILE` (mode `0600`). The file contains your session tokens, password and PIN, so treat it like a password. After a failed login the server discards the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before trying again.
+- **Logins are cached.** Repeated password logins can get an account temporarily blocked, so the server keeps the token in `BLUELINK_TOKEN_FILE` (mode `0600`). The file contains your session tokens (not your password or PIN), so treat it like a password. After Bluelink rejects a login the server discards the cache and waits `BLUELINK_LOGIN_RETRY_MINUTES` before trying again.
 - **Commands are slow.** They travel over the mobile network and usually take 20–60 s. With `wait=true` (the default), the tool waits up to about 60 s for the car to confirm, then returns `pending` with an `action_id` to check later; other tools keep working meanwhile. `timeout` means the car didn't answer, not necessarily that nothing happened.
 
 ## Safety
 
-The server is read-only unless you set `BLUELINK_ALLOW_WRITES=true`, and `unlock_vehicle` needs its own `BLUELINK_ALLOW_UNLOCK=true` switch. Tools carry MCP annotations (read-only, destructive) so clients can ask before running them. In HTTP mode every request needs the bearer token, so don't expose the port to the internet without TLS in front of it.
+The server is read-only unless you set `BLUELINK_ALLOW_WRITES=true`, and `unlock_vehicle` needs its own `BLUELINK_ALLOW_UNLOCK=true` switch. Unlocking also needs your confirmation on the server side (see [Unlocking](docs/usage.md#unlocking)), and each command is rate limited per car. Tools carry MCP annotations (read-only, destructive) so clients can ask before running them. In HTTP mode every request needs the bearer token, so don't expose the port to the internet without TLS in front of it.
 
 ## Documentation
 

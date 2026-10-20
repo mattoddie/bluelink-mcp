@@ -7,6 +7,7 @@ Ask about your car in plain language. The assistant picks the tools; you don't n
 - [How commands work](#how-commands-work)
 - [Climate options](#climate-options)
 - [Charging](#charging)
+- [Unlocking](#unlocking)
 - [Several cars](#several-cars)
 
 ## Example questions
@@ -22,7 +23,7 @@ Ask about your car in plain language. The assistant picks the tools; you don't n
 
 **Where and how far**
 
-- *"Where's the car?"*
+- *"Where's the car?"* (needs `BLUELINK_ALLOW_LOCATION=true`)
 - *"How many miles did I drive last week, and what was my longest trip?"*
 - *"Summarise my driving for September."*
 - *"How much energy went on climate versus driving this week?"*
@@ -67,6 +68,17 @@ By default (`wait: true`) the tool waits up to about 60 seconds for the car's an
 | `sent` | Some regions don't return an `action_id`, so there's nothing to track. |
 
 After a command, the next status read goes back to Bluelink instead of using the cache.
+
+The same command can't be sent to the same car again within `BLUELINK_MIN_COMMAND_SECONDS` (60 by default), even if the first attempt failed, because a failed command may still have reached the car. The tool says how long to wait. Other commands, and other cars, aren't held up.
+
+## Unlocking
+
+`unlock_vehicle` asks you to confirm on the server's side as well, on top of any approval prompt your client shows:
+
+- If your client supports MCP elicitation, the server asks you directly: *"Unlock Santa Fe (VIN ending 123456)?"* Nothing is unlocked unless you answer yes.
+- If it doesn't, the first call fails and asks the assistant to check with you. The assistant must then call again with `confirm` set to the car's name or the last 6 characters of its VIN, as `list_vehicles` shows them.
+
+The confirm argument makes unlocking a deliberate two-step action, but a model that ignores its instructions could still fill it in itself. Keep your client's approval prompt for `unlock_vehicle` turned on.
 
 ## Climate options
 

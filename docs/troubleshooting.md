@@ -1,6 +1,8 @@
 # Troubleshooting
 
-Start with the logs: `docker compose logs bluelink-mcp`, or your MCP client's server log for stdio (in Claude Code, `claude --debug`). Logs go to stderr and never include your password or tokens.
+Start with the logs: `docker compose logs bluelink-mcp`, or your MCP client's server log for stdio (in Claude Code, `claude --debug`). Logs go to stderr. At the default level (`LOG_LEVEL=info`) they don't include your password, tokens or Bluelink's responses.
+
+For more detail, set `LOG_LEVEL=debug` and restart. Debug logs include the Bluelink library's own logging, which contains whole requests and responses with session tokens, your VIN and the car's location. Only turn it on while you need it, and redact the output before sharing it.
 
 - [The server won't start](#the-server-wont-start)
 - [Login fails](#login-fails)
@@ -12,24 +14,27 @@ Start with the logs: `docker compose logs bluelink-mcp`, or your MCP client's se
 
 | Message | Fix |
 |---|---|
-| `BLUELINK_USERNAME and BLUELINK_PASSWORD must be set` | Set both. With Docker, check `.env` is next to `compose.yaml` and has no quotes around values. |
+| `BLUELINK_USERNAME and BLUELINK_PASSWORD (or BLUELINK_PASSWORD_FILE) must be set` | Set both. With Docker, check `.env` is next to `compose.yaml` and has no quotes around values. |
 | `BLUELINK_REGION must be one of ...` | Use one of the names in [Configuration](configuration.md#choosing-a-region), such as `europe` or `usa`. |
 | `BLUELINK_ALLOW_UNLOCK needs BLUELINK_ALLOW_WRITES=true too` | Turn on writes as well, or turn unlock off. |
 | `BLUELINK_BRAND=... is not supported in BLUELINK_REGION=...` | The library has no service for that brand in that region. Check the [compatibility table](compatibility.md). |
+| `BLUELINK_GEOCODE needs BLUELINK_ALLOW_LOCATION=true too` | Addresses are only looked up for the location tool. Set `BLUELINK_ALLOW_LOCATION=true`, or turn geocoding off. |
 | `MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS too` | Origins are only checked together with hosts. Set `MCP_ALLOWED_HOSTS` as well. |
-| `set MCP_AUTH_TOKEN when using the http transport` | Generate one with `openssl rand -hex 32` and add it to `.env`. |
+| `set MCP_AUTH_TOKEN (or MCP_AUTH_TOKEN_FILE) when using the http transport` | Generate one with `openssl rand -hex 32` and add it to `.env`. |
+| `MCP_AUTH_TOKEN must be at least 16 characters` | Short tokens can be guessed. Generate a new one with `openssl rand -hex 32` and update your clients. |
+| `Set BLUELINK_PASSWORD or BLUELINK_PASSWORD_FILE, not both` | Remove one of them. The same goes for `BLUELINK_PIN` and `MCP_AUTH_TOKEN`. |
 
 ## Login fails
 
-The tool returns *"Could not log in to Bluelink: ..."*, with a short reason and the error type, such as `(AuthenticationError)`. For the full error, run the server with debug logging.
+The tool returns *"Could not log in to Bluelink: ..."*, with a short reason and the error type, such as `(AuthenticationError)`. For the full error, run the server with `LOG_LEVEL=debug`.
 
-After a failed login, the server waits `BLUELINK_LOGIN_RETRY_MINUTES` (5) before trying again, and until then tools answer *"Logging in to Bluelink failed ... min ago"*. This protects the account from being locked by repeated attempts. Restarting the server clears the wait.
+After Bluelink rejects a login or asks for a one-time passcode, the server waits `BLUELINK_LOGIN_RETRY_MINUTES` (5) before trying again, and until then tools answer *"Logging in to Bluelink failed ... min ago"*. This protects the account from being locked by repeated attempts. Restarting the server clears the wait. Network errors (*"Could not reach Bluelink to log in"*) don't start the wait, because Bluelink never saw the attempt.
 
 1. **Check the app.** Log out of the official app and back in with the same email and password. If the app asks you to accept new terms, verify your email or set a new password, do that, then try again.
 2. **Check the region.** It must match where the account was created. In Europe, if `europe` keeps failing, try `europe-cci`, which is the backend some newer Hyundais and Kias use. For a Kia, also check `BLUELINK_BRAND=kia`: a Kia Connect login won't work against Hyundai's service.
 3. **Too many attempts.** Bluelink temporarily blocks accounts after repeated logins, and the app may then fail too. Wait an hour, make sure the token cache is working (see below), and try again.
 4. **Changed password.** Update `BLUELINK_PASSWORD` (and `BLUELINK_PIN` if that changed) and restart the server. The cache always uses the configured password, and is deleted automatically when a login is rejected. To clear it by hand: in Docker, `docker compose exec bluelink-mcp rm /data/token.json`; otherwise `rm ~/.local/state/bluelink-mcp/token.json`.
-5. **One-time passcode.** *"Bluelink asked for a one-time passcode"* means the account needs an OTP, which the server can't enter. Log in once in the app on a trusted device, then try again.
+5. **One-time passcode.** *"Bluelink asked for a one-time passcode"* means the account needs an OTP, which the server can't enter. Log in once in the app on a trusted device, then try again. The server then waits `BLUELINK_LOGIN_RETRY_MINUTES` before trying again, like after any rejected login.
 
 If logins worked before and stopped for everyone at the same time, Hyundai or Kia has probably changed its API. Update to the latest image. If that doesn't help, check the [library's issues](https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api/issues).
 
@@ -48,15 +53,18 @@ If logins worked before and stopped for everyone at the same time, Hyundai or Ki
 | `timeout` | Bluelink gave up waiting for the car, often because of poor mobile signal in a car park. The command may still have happened, so check the status in a minute before retrying. |
 | `pending` | The car hadn't answered within about 60 seconds. Ask the assistant to check the command later; it has the `action_id`. |
 | PIN errors | Set `BLUELINK_PIN` to the PIN you use in the app. |
+| *"... was sent to ... s ago"* | The same command was sent to that car less than `BLUELINK_MIN_COMMAND_SECONDS` (60) ago. Wait, or check the earlier command with `get_command_status`. |
+| *"Not unlocked: this needs confirmation"* | Your client doesn't support MCP elicitation, so the assistant must confirm with you and call again with `confirm` set to the car's name or the last 6 characters of its VIN. See [Unlocking](usage.md#unlocking). |
 | *"No vehicle matches"* when unlocking | With several cars, `unlock_vehicle` needs the car's exact name, VIN or ID. |
-| *"Unknown tool"* or the tool isn't listed | Command tools are only registered with `BLUELINK_ALLOW_WRITES=true`, and unlock with `BLUELINK_ALLOW_UNLOCK=true`. Restart the server and reconnect the client after changing settings. |
+| *"Unknown tool"* or the tool isn't listed | Command tools are only registered with `BLUELINK_ALLOW_WRITES=true`, unlock with `BLUELINK_ALLOW_UNLOCK=true`, and `get_vehicle_location` with `BLUELINK_ALLOW_LOCATION=true`. Restart the server and reconnect the client after changing settings. |
 
 ## Client connection problems
 
 | Symptom | Fix |
 |---|---|
 | `401 unauthorized` | The client isn't sending `Authorization: Bearer <MCP_AUTH_TOKEN>`, or the token doesn't match. |
-| `421` or *"Invalid Host header"* | The request's `Host` isn't in `MCP_ALLOWED_HOSTS`. Add it, including the port if it isn't 80 or 443. |
-| `403` or *"Invalid Origin header"* | The client sends an `Origin` header that isn't in `MCP_ALLOWED_ORIGINS`. Add it, such as `https://claude.ai`. |
+| `421` or *"Host ... is not allowed"* | The request's `Host` isn't in `MCP_ALLOWED_HOSTS`. Add the host name. |
+| `403` or *"Origin ... is not allowed"* | The client sends an `Origin` header that isn't on an allowed host or in `MCP_ALLOWED_ORIGINS`. Add it, such as `https://claude.ai`. |
+| `405 Method not allowed` | `/mcp` only takes `POST`. The server is stateless, so clients don't need `GET` streams or `DELETE`. |
 | Connection refused | Check the container is running and healthy: `docker compose ps`, and `curl http://<docker-host>:8080/health` should print `ok`. |
 | stdio server exits immediately | Run the same command in a terminal to see the error. For Docker, make sure you pass `-i` and not `-t`. |
