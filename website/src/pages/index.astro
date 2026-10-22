@@ -280,6 +280,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
               <li><strong>Read-only out of the box.</strong> Commands and unlocking are two separate switches.</li>
               <li><strong>Kind to your car.</strong> Status comes from the car maker's servers, and waking the car for live data is rate limited to spare its 12V battery.</li>
               <li><strong>Kind to your account.</strong> The login is cached, so the car maker doesn't see a login for every question.</li>
+              <li><strong>A record of every command.</strong> An optional audit log notes each command sent to the car, without its location.</li>
               <li><strong>Bearer-token auth</strong>, a Host allow-list and a non-root container.</li>
             </ul>
             <a class="link" href="/docs/security/">Read the security model →</a>
@@ -321,7 +322,9 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
           <ul class="chips">{clients.map((c) => <li>{c}</li>)}</ul>
           <p class="muted">
             Run it once and share it, or start it per session with <code>uv run</code> or <code>docker run -i</code>. Commands wait
-            for the car to confirm. <a href="/docs/clients/">Client setup →</a>
+            for the car to confirm.
+            On Claude Desktop, install the one-click bundle from the <a href={`${GITHUB}/releases/latest`}>latest release</a>.
+            <a href="/docs/clients/">Client setup →</a>
           </p>
         </div>
       </section>
