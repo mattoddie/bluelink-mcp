@@ -237,6 +237,14 @@ jobs:
 
       - name: Publish
         run: |
+          # The registry refuses to publish a version twice, so a re-run after
+          # a successful publish has nothing to do.
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://registry.modelcontextprotocol.io/v0/servers/$(jq -r '.name | @uri' server.json)/versions/$VERSION")
+          if [ "$code" = 200 ]; then
+            echo "Version $VERSION is already in the MCP Registry."
+            exit 0
+          fi
           "$RUNNER_TEMP/mcp-publisher" login github-oidc
           "$RUNNER_TEMP/mcp-publisher" publish server.json
           {

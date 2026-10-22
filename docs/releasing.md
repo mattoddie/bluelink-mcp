@@ -86,7 +86,7 @@ A version can be published to the registry only once, and it can't be changed af
 
 ### Re-running the registry step
 
-If only the *registry* job failed, open the run under **Actions → Release** and choose **Re-run failed jobs**. The image and bundle aren't rebuilt. If the version did reach the registry, a re-run fails because the version already exists: there's nothing left to do.
+If only the *registry* job failed, open the run under **Actions → Release** and choose **Re-run failed jobs**. The image and bundle aren't rebuilt. If the version already reached the registry, the job notices and skips the publish.
 
 ### Publishing by hand
 
