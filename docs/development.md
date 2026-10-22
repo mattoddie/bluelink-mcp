@@ -26,6 +26,7 @@ Checks that CI runs:
 uv run pytest                                  # tests
 uv run ruff check . && uv run ruff format --check .
 uv run python scripts/gen_tool_docs.py --check # docs/tools.md matches the code
+uv run python scripts/mcpb.py manifest --check # mcpb/manifest.json lists every tool
 docker build .                                 # optional: tests run inside the build too
 ```
 
@@ -34,12 +35,18 @@ docker build .                                 # optional: tests run inside the 
 ```text
 src/bluelink_mcp/
 ├── __main__.py   entry point: config, stdio or HTTP, bearer auth, /health
+├── audit.py      the audit log (BLUELINK_AUDIT_LOG) and the decorator for tools that act on the car
 ├── config.py     environment variables → a frozen Config
 ├── client.py     BluelinkClient: session, token cache, rate limits, commands
 ├── format.py     library objects → compact JSON for the model
 └── server.py     the MCP tools
 scripts/
-└── gen_tool_docs.py   writes docs/tools.md from the tool definitions
+├── gen_tool_docs.py   writes docs/tools.md from the tool definitions
+└── mcpb.py            refreshes mcpb/manifest.json and builds the Claude Desktop bundle
+mcpb/
+├── manifest.json      the bundle's manifest (MCPB "uv" server type) and settings form
+├── server.py          the bundle's entry point
+└── icon.png
 tests/
 └── test_server.py     tests against a fake VehicleManager
 ```
@@ -61,10 +68,11 @@ Errors meant for the model are raised as `BluelinkError`, a subclass of the SDK'
    - **Register command tools only inside the `allow_writes` section.** This gating is the project's main safety feature, so reviewers check it carefully.
    - Take `vehicle: VehicleArg = None`, and `wait: WaitArg = True` for commands.
    - Send commands through `client.command(...)`, which resolves the vehicle, clears the cache and waits for the result.
+   - Put `@logged()` under `@mcp.tool(...)` on any tool that acts on the car, so the audit log records it.
    - Describe every argument with `Field(description=...)`, and write the docstring for the model: what it does, side effects and units.
 3. **Add it to a group** in `scripts/gen_tool_docs.py`. The script fails if a tool is in no group.
 4. **Test it** in `tests/test_server.py`, adding the method to `FakeManager`.
-5. **Regenerate the docs:** `uv run python scripts/gen_tool_docs.py`.
+5. **Regenerate the docs and the bundle's tool list:** `uv run python scripts/gen_tool_docs.py` and `uv run python scripts/mcpb.py manifest`.
 6. **Add a changelog entry** under **Unreleased**.
 
 ## Testing

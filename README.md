@@ -54,7 +54,11 @@ Every tool takes an optional `vehicle` (name, VIN or ID). You can leave it out i
 
 ## Quick start
 
-You need a Hyundai Bluelink or Kia Connect account that works in the app, and [uv](https://docs.astral.sh/uv/) or Docker. The defaults are for a Hyundai in Europe. For a Kia, add `BLUELINK_BRAND=kia`, and outside Europe set `BLUELINK_REGION`.
+You need a Hyundai Bluelink or Kia Connect account that works in the app, and [uv](https://docs.astral.sh/uv/) or Docker. On Claude Desktop you need neither: see below. The defaults are for a Hyundai in Europe. For a Kia, add `BLUELINK_BRAND=kia`, and outside Europe set `BLUELINK_REGION`.
+
+### Claude Desktop extension
+
+Download `bluelink-mcp-<version>.mcpb` from the [latest release](https://github.com/mattoddie/bluelink-mcp/releases/latest) and open it, or drag it onto **Settings → Extensions** in Claude Desktop. Fill in your login, region and brand, and choose what Claude may do. One bundle works on macOS, Windows and Linux: Claude Desktop installs Python and the dependencies itself. See [Claude Desktop](docs/clients.md#claude-desktop).
 
 ### Claude Code with uv (stdio)
 
@@ -68,7 +72,7 @@ claude mcp add bluelink \
   -- uv run --directory "$PWD" bluelink-mcp
 ```
 
-For a Kia, add `-e BLUELINK_BRAND=kia`. Claude Desktop and other clients use the same command (`uv run --directory /path/to/bluelink-mcp bluelink-mcp`) with the same environment variables.
+For a Kia, add `-e BLUELINK_BRAND=kia`. Other stdio clients use the same command (`uv run --directory /path/to/bluelink-mcp bluelink-mcp`) with the same environment variables.
 
 ### Docker (Streamable HTTP)
 
@@ -97,6 +101,7 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 | `BLUELINK_GEOCODE` | `false` | Add a street address to the location via OpenStreetMap (needs location) |
 | `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools |
 | `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle` (needs writes) |
+| `BLUELINK_AUDIT_LOG` | | Record every command and live refresh as JSON Lines: a file path, or `stderr` |
 | `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum gap between `refresh_vehicle_status` calls per car |
 | `BLUELINK_MIN_COMMAND_SECONDS` | `60` | Minimum gap before sending the same command to the same car again |
 | `BLUELINK_CACHE_SECONDS` | `60` | How long a status read is reused |
@@ -124,7 +129,7 @@ Not every brand is available everywhere. New Zealand is Kia only, Brazil is Hyun
 
 ## Safety
 
-The server is read-only unless you set `BLUELINK_ALLOW_WRITES=true`, and `unlock_vehicle` needs its own `BLUELINK_ALLOW_UNLOCK=true` switch. Unlocking also needs your confirmation on the server side (see [Unlocking](docs/usage.md#unlocking)), and each command is rate limited per car. Tools carry MCP annotations (read-only, destructive) so clients can ask before running them. In HTTP mode every request needs the bearer token, so don't expose the port to the internet without TLS in front of it.
+The server is read-only unless you set `BLUELINK_ALLOW_WRITES=true`, and `unlock_vehicle` needs its own `BLUELINK_ALLOW_UNLOCK=true` switch. Unlocking also needs your confirmation on the server side (see [Unlocking](docs/usage.md#unlocking)), and each command is rate limited per car. Tools carry MCP annotations (read-only, destructive) so clients can ask before running them, and `BLUELINK_AUDIT_LOG` records every command in an audit log. In HTTP mode every request needs the bearer token, so don't expose the port to the internet without TLS in front of it.
 
 ## Documentation
 

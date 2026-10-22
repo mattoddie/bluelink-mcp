@@ -21,6 +21,7 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
 from . import __version__
+from .audit import AuditLog, audited
 from .client import BluelinkClient, BluelinkError
 from .config import REGIONS, Config
 from .format import clean, daily_stats, vehicle_location, vehicle_status, vehicle_summary
@@ -173,6 +174,9 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
     async def run(fn, *args, **kwargs):
         return await anyio.to_thread.run_sync(partial(fn, *args, **kwargs))
 
+    # Every tool that acts on the car (waking it or sending a command) is wrapped in `logged`.
+    logged = partial(audited, AuditLog(config.audit_log) if config.audit_log else None)
+
     # --- read ---------------------------------------------------------------
 
     @mcp.tool(title="List vehicles", annotations=READ)
@@ -187,6 +191,7 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         return vehicle_status(await run(client.status, vehicle))
 
     @mcp.tool(title="Refresh vehicle status from the car", annotations=WAKE)
+    @logged()
     async def refresh_vehicle_status(vehicle: VehicleArg = None) -> dict[str, Any]:
         """Wake the car and fetch live state, then return it like get_vehicle_status.
         Uses a little 12V battery and API quota, so it is rate limited."""
@@ -249,6 +254,7 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         return await run(client.command, vehicle, name, action, wait, exact=exact)
 
     @mcp.tool(title="Lock the car", annotations=WRITE)
+    @logged()
     async def lock_vehicle(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Lock the car's doors."""
         return await command(vehicle, "lock_vehicle", lambda m, v: m.lock(v.id), wait)
@@ -272,6 +278,7 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             )
 
         @mcp.tool(title="Unlock the car", annotations=SENSITIVE)
+        @logged(skip=("answer",))
         async def unlock_vehicle(
             # Filled by the server, not the model: the user's answer, or an accepted
             # result without data when the client couldn't be asked.
@@ -302,6 +309,7 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             return await command(vehicle, "unlock_vehicle", lambda m, v: m.unlock(v.id), wait, exact=True)
 
     @mcp.tool(title="Start climate control", annotations=WRITE)
+    @logged()
     async def start_climate(
         vehicle: VehicleArg = None,
         temperature: Annotated[
@@ -357,21 +365,25 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         return result
 
     @mcp.tool(title="Stop climate control", annotations=WRITE)
+    @logged()
     async def stop_climate(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Stop cabin pre-conditioning."""
         return await command(vehicle, "stop_climate", lambda m, v: m.stop_climate(v.id), wait)
 
     @mcp.tool(title="Start charging", annotations=WRITE)
+    @logged()
     async def start_charging(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Start charging now (the car must be plugged in). Overrides a charging schedule."""
         return await command(vehicle, "start_charging", lambda m, v: m.start_charge(v.id), wait)
 
     @mcp.tool(title="Stop charging", annotations=WRITE)
+    @logged()
     async def stop_charging(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Stop charging."""
         return await command(vehicle, "stop_charging", lambda m, v: m.stop_charge(v.id), wait)
 
     @mcp.tool(title="Set charge limits", annotations=WRITE)
+    @logged()
     async def set_charge_limits(
         ac_percent: Annotated[
             int, Field(ge=50, le=100, multiple_of=10, description="Limit for AC (home/public) charging.")
@@ -388,6 +400,7 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         )
 
     @mcp.tool(title="Flash hazard lights", annotations=WRITE)
+    @logged()
     async def flash_hazard_lights(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Flash the hazard lights briefly, e.g. to find the car in a car park."""
         return await command(vehicle, "flash_hazard_lights", lambda m, v: m.start_hazard_lights(v.id), wait)

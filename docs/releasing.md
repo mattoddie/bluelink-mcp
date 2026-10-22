@@ -1,6 +1,6 @@
 # Releasing
 
-Releases are driven by **GitHub releases**. Publishing a release with a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/bluelink-mcp`. Nothing is published by merging to `main` alone.
+Releases are driven by **GitHub releases**. Publishing a release with a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/bluelink-mcp`, then attaches the Claude Desktop extension bundle (`bluelink-mcp-X.Y.Z.mcpb`) to the release. Nothing is published by merging to `main` alone.
 
 - [Versioning](#versioning)
 - [Release checklist](#release-checklist)
@@ -38,7 +38,7 @@ The version comes **from the tag**. `pyproject.toml` stays at `0.0.0.dev0` in th
    Or in the web UI: **Releases → Draft a new release → Choose a tag → type `v1.2.0` → Create new tag on publish**, target `main`. Click **Generate release notes**, edit them as needed, then **Publish release**.
 
 4. **Watch the workflow.** Open **Actions → Release**. It takes a few minutes. When it finishes, the release notes gain a *Container image* section with the pull command, digest and tags.
-5. **Check the image:** `docker pull ghcr.io/mattoddie/bluelink-mcp:1.2.0`.
+5. **Check the image:** `docker pull ghcr.io/mattoddie/bluelink-mcp:1.2.0`, and that the release has the `.mcpb` bundle attached.
 
 Release notes are generated from merged PR titles and grouped by label. The groups are set in [`.github/release.yml`](../.github/release.yml). Label PRs `breaking`, `enhancement`, `new-tool`, `bug`, `compatibility`, `documentation` or `dependencies` to sort them, or `skip-changelog` to leave a PR out.
 
@@ -62,6 +62,7 @@ Pre-releases are published only under their exact version (`ghcr.io/mattoddie/bl
 | Push | To `ghcr.io/mattoddie/bluelink-mcp` using the workflow's `GITHUB_TOKEN`. No personal tokens are needed. |
 | Supply chain | Attaches an SBOM and SLSA provenance to the image, and pushes a signed build provenance attestation (`gh attestation verify`). |
 | Release notes | Appends the pull command, digest and tags. |
+| MCP Bundle | After the image, builds `bluelink-mcp-X.Y.Z.mcpb` with `scripts/mcpb.py pack`, validates its manifest with `@anthropic-ai/mcpb`, attests it, uploads it to the release and adds a *Claude Desktop* section to the notes. |
 
 ## If something goes wrong
 

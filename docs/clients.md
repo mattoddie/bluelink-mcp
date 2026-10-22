@@ -4,7 +4,7 @@ bluelink-mcp supports both standard MCP transports:
 
 | Transport | How it runs | Best for |
 |---|---|---|
-| **stdio** (the default outside Docker) | The client starts the server for each session, with `uv run` or `docker run -i`. | A single machine, no network service. |
+| **stdio** (the default outside Docker) | The client starts the server for each session, with `uv run` or `docker run -i`, or as the Claude Desktop extension. | A single machine, no network service. |
 | **Streamable HTTP** (the default in the image) | One long-running container. Clients connect to `http://<host>:8080/mcp`. | Sharing one server between several clients and machines. |
 
 The HTTP endpoint is **stateless**: each request is handled on its own, so you can restart the container at any time. Every request must send `Authorization: Bearer <token>`, where the token is your `MCP_AUTH_TOKEN`.
@@ -54,7 +54,33 @@ Run `claude mcp list` to check the connection, and `/mcp` inside Claude Code to 
 
 ## Claude Desktop
 
-Claude Desktop starts local MCP servers over stdio. Open **Settings → Developer → Edit Config** and add one of these.
+The easiest way is the **extension bundle**: a single `.mcpb` file that installs bluelink-mcp into Claude Desktop with a settings form. It needs no Docker, no service and no token, because Claude Desktop runs the server itself over stdio.
+
+### Install the extension
+
+1. Download `bluelink-mcp-<version>.mcpb` from the [latest release](https://github.com/mattoddie/bluelink-mcp/releases/latest). The same file works on macOS, Windows and Linux.
+2. Double-click it, or drag it onto **Settings → Extensions** in Claude Desktop, and click **Install**.
+3. Fill in the settings and turn the extension on. The tools appear under the tools (🔨) menu, where you can also allow or block each one.
+
+The bundle uses Claude Desktop's uv runtime: on first start, Claude Desktop downloads a suitable Python and the exact dependency versions from the release's `uv.lock`, so the first start takes a minute and needs internet access. To update, install the bundle from a newer release the same way.
+
+### Settings
+
+| Setting | Variable | Notes |
+|---|---|---|
+| Email, Password | `BLUELINK_USERNAME`, `BLUELINK_PASSWORD` | Your app login. The password is marked sensitive, so Claude Desktop keeps it out of the plain settings. |
+| PIN | `BLUELINK_PIN` | Optional. Europe and Canada need it for commands. |
+| Region, Brand | `BLUELINK_REGION`, `BLUELINK_BRAND` | See [Choosing a region](configuration.md#choosing-a-region). Default `europe` and `hyundai`. |
+| Allow commands | `BLUELINK_ALLOW_WRITES` | Lock, climate, charging, charge limits and hazard lights. Off by default. |
+| Allow unlocking | `BLUELINK_ALLOW_UNLOCK` | Needs *Allow commands*. Each unlock also needs your confirmation; see [Unlocking](usage.md#unlocking). |
+| Share location | `BLUELINK_ALLOW_LOCATION` | Registers `get_vehicle_location`. Off by default. |
+| Audit log file | `BLUELINK_AUDIT_LOG` | Optional full path to a JSON Lines file (its folder must exist), or `stderr` for Claude Desktop's MCP log. See [Audit log](configuration.md#audit-log). |
+
+Other settings keep their defaults, including the login token cache in `~/.local/state/bluelink-mcp/token.json`. The server's own log goes to Claude Desktop's MCP server logs.
+
+### Without the extension
+
+Claude Desktop also starts MCP servers listed in its config file over stdio. Open **Settings → Developer → Edit Config** and add one of these.
 
 With uv:
 

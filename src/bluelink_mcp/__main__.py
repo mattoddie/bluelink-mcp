@@ -257,12 +257,13 @@ def main() -> None:
         sys.exit(f"bluelink-mcp: {ex}")
 
     logging.getLogger("bluelink_mcp").info(
-        "bluelink-mcp %s (%s, writes %s, unlock %s, location %s)",
+        "bluelink-mcp %s (%s, writes %s, unlock %s, location %s, audit log %s)",
         __version__,
         config.transport,
         "on" if config.allow_writes else "off",
         "on" if config.allow_unlock else "off",
         "on" if config.allow_location else "off",
+        config.audit_log or "off",
     )
     mcp = build_server(config)
     if config.transport == "stdio":

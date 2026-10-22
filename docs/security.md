@@ -31,7 +31,8 @@ bluelink-mcp can find, lock, unlock and pre-condition a real car. This page expl
 9. **No login loops.** After Bluelink rejects a login or asks for a one-time passcode, the server discards the token cache and doesn't try again for `BLUELINK_LOGIN_RETRY_MINUTES`, so a wrong or changed password can't get the account locked.
 10. **Unlock picks the car exactly.** With several cars on the account, `unlock_vehicle` needs the exact name, VIN or ID; part of a name isn't enough.
 11. **Unlock asks you, on the server side.** Clients that support MCP elicitation show you a question from the server, and nothing is unlocked unless you say yes. With other clients, the assistant has to call again with the car's name or VIN ending in `confirm`, after checking with you. That second step can't stop a model that ignores its instructions, so keep your client's approval prompt on as well. See [Unlocking](usage.md#unlocking).
-12. **Rate-limited commands.** The same command can't be sent to the same car again within `BLUELINK_MIN_COMMAND_SECONDS` (60), so a looping assistant can't flood the car or the account's daily API quota.
+12. **Audit log.** With `BLUELINK_AUDIT_LOG` set, every command and live refresh, including failed and refused ones, is appended to a JSON Lines file (mode `0600`) with its arguments and outcome. The unlock confirmation is redacted, VINs are shortened, and nothing from the car's status or location is written. See [Audit log](configuration.md#audit-log).
+13. **Rate-limited commands.** The same command can't be sent to the same car again within `BLUELINK_MIN_COMMAND_SECONDS` (60), so a looping assistant can't flood the car or the account's daily API quota.
 
 ## Prompt injection
 
@@ -68,6 +69,7 @@ To limit the impact:
 - [ ] The HTTP port isn't reachable from the internet, or is behind TLS
 - [ ] `BLUELINK_ALLOW_UNLOCK` is off unless you need it
 - [ ] `BLUELINK_ALLOW_LOCATION` is off unless you need it
+- [ ] With commands on, `BLUELINK_AUDIT_LOG` records what the assistant did
 - [ ] Your client asks before running command tools
 - [ ] You know how to change your Bluelink or Kia Connect password if something leaks
 

@@ -6,6 +6,15 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+### Added
+
+- **Claude Desktop extension.** Each release has a `bluelink-mcp-X.Y.Z.mcpb` bundle that installs bluelink-mcp into Claude Desktop with a settings form for the login, region, brand, the three switches and the audit log. It uses the MCPB uv runtime, so one bundle works on macOS, Windows and Linux. Build it with `uv run python scripts/mcpb.py pack <version>`.
+- **Audit log.** `BLUELINK_AUDIT_LOG` (a file path or `stderr`) appends a JSON line for every command and live refresh, including failed and refused ones: the time, tool, arguments (unlock confirmation redacted, VINs shortened), the car's name, `action_id` and status, and the outcome. The file is created with mode `0600`.
+
+### Changed
+
+- An empty variable, or one holding only a `${user_config.<key>}` placeholder, counts as not set. Previously an empty `BLUELINK_REGION`, `BLUELINK_BRAND` or `MCP_TRANSPORT` stopped the server.
+
 ## [0.2.0] - 2026-10-20
 
 This release follows a security review. **It has breaking changes**; check the first section before upgrading.
