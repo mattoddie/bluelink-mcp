@@ -178,6 +178,8 @@ Then `export BLUELINK_MCP_TOKEN=<token>` before running `codex`.
 
 ## Other clients
 
+Clients that install servers from the [MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mattoddie/bluelink-mcp) can find bluelink-mcp as `io.github.mattoddie/bluelink-mcp`. The entry offers the Docker image, run over stdio with a `bluelink-data` volume for the token cache, and the Claude Desktop bundle, and asks for the same settings as the bundle.
+
 Any client that supports MCP **Streamable HTTP** works. Point it at `http://<docker-host>:8080/mcp` and send the bearer token header.
 
 If your client only supports stdio, use [stdio mode](#stdio-mode), or keep the shared HTTP server and connect through a stdio-to-HTTP bridge such as [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):

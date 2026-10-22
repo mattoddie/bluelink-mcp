@@ -1,7 +1,7 @@
 # Publishing a GitHub release (tag vX.Y.Z) builds the Docker image for
 # amd64 and arm64, pushes it to ghcr.io/<owner>/bluelink-mcp, and attaches the
-# MCP Bundle (.mcpb) for Claude Desktop to the release.
-# See docs/releasing.md.
+# MCP Bundle (.mcpb) for Claude Desktop to the release. Stable releases are then
+# published to the MCP Registry. See docs/releasing.md.
 name: Release
 
 on:
@@ -23,6 +23,9 @@ jobs:
       packages: write # push to ghcr.io
       id-token: write # sign the build provenance attestation
       attestations: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      stable: ${{ steps.version.outputs.stable }}
     env:
       IMAGE: ghcr.io/${{ github.repository }}
       TAG: ${{ github.event.release.tag_name }}
@@ -75,6 +78,7 @@ jobs:
             org.opencontainers.image.title=bluelink-mcp
             org.opencontainers.image.description=MCP server for Hyundai Bluelink and Kia Connect
             org.opencontainers.image.licenses=MIT
+            io.modelcontextprotocol.server.name=io.github.mattoddie/bluelink-mcp
 
       - name: Build and push
         id: build
@@ -188,3 +192,55 @@ jobs:
             echo "Download \`bluelink-mcp-$version.mcpb\` and open it to install bluelink-mcp as a Claude Desktop extension. One bundle works on macOS, Windows and Linux: Claude Desktop installs Python and the dependencies with uv. See [Claude Desktop](https://bluelink-mcp.mattoddie.dev/docs/clients/#claude-desktop) for the settings."
           } >> notes.md
           gh release edit "$TAG" --notes-file notes.md
+
+  registry:
+    name: Publish to the MCP Registry
+    # After the image and the bundle, which server.json points at. Pre-releases aren't listed.
+    needs: [image, mcpb]
+    if: needs.image.outputs.stable == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # download the bundle to hash it
+      id-token: write # log in to the registry with GitHub OIDC
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      VERSION: ${{ needs.image.outputs.version }}
+      # Pinned: bump both together from the release's registry_<version>_checksums.txt.
+      MCP_PUBLISHER_VERSION: 1.8.1
+      MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/mcp-publisher.tar.gz" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v$MCP_PUBLISHER_VERSION/mcp-publisher_linux_amd64.tar.gz"
+          echo "$MCP_PUBLISHER_SHA256  $RUNNER_TEMP/mcp-publisher.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/mcp-publisher.tar.gz" -C "$RUNNER_TEMP" mcp-publisher
+          "$RUNNER_TEMP/mcp-publisher" --help > /dev/null
+
+      - name: Stamp the version, image tag and bundle hash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Hash the bundle that was actually uploaded to the release.
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "bluelink-mcp-$VERSION.mcpb" --dir "$RUNNER_TEMP"
+          sha=$(sha256sum "$RUNNER_TEMP/bluelink-mcp-$VERSION.mcpb" | cut -d' ' -f1)
+          python3 scripts/registry.py stamp "$VERSION" "$sha"
+          cat server.json
+
+      - name: Validate
+        run: '"$RUNNER_TEMP/mcp-publisher" validate server.json'
+
+      - name: Publish
+        run: |
+          "$RUNNER_TEMP/mcp-publisher" login github-oidc
+          "$RUNNER_TEMP/mcp-publisher" publish server.json
+          {
+            echo "### Published \`io.github.mattoddie/bluelink-mcp\` $VERSION to the MCP Registry"
+            echo
+            echo "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mattoddie/bluelink-mcp"
+          } >> "$GITHUB_STEP_SUMMARY"

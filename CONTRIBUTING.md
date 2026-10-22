@@ -50,6 +50,7 @@ See [docs/development.md](docs/development.md) for the architecture and a walkth
    uv run ruff check . && uv run ruff format --check .
    uv run python scripts/gen_tool_docs.py --check
    uv run python scripts/mcpb.py manifest --check
+   uv run python scripts/registry.py check
    docker build .   # optional: the image builds and the tests pass inside it
    ```
 
