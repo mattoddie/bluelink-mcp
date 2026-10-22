@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -23,6 +24,16 @@ BRANDS = {"kia": 1, "hyundai": 2, "genesis": 3}
 
 class ConfigError(ValueError):
     """Raised when the environment does not describe a usable configuration."""
+
+
+# A ${user_config.<key>} reference that an MCP Bundle host such as Claude Desktop passed
+# through unchanged because the user left an optional setting empty. It means "not set".
+_PLACEHOLDER = re.compile(r"^\$\{user_config\.[^}]*\}$")
+
+
+def without_placeholders(env: dict[str, str]) -> dict[str, str]:
+    """The environment without variables that hold an unfilled bundle placeholder."""
+    return {k: v for k, v in env.items() if not _PLACEHOLDER.match(v.strip())}
 
 
 def _bool(env: dict[str, str], name: str, default: bool = False) -> bool:
@@ -86,7 +97,7 @@ def log_level(env: dict[str, str]) -> tuple[int, int]:
     The library logs whole Bluelink requests and responses (tokens, VIN, location), some
     of them at ERROR, so it is heard from only when LOG_LEVEL=debug.
     """
-    raw = env.get("LOG_LEVEL", "").strip().lower() or "info"
+    raw = without_placeholders(env).get("LOG_LEVEL", "").strip().lower() or "info"
     if raw not in LOG_LEVELS:
         raise ConfigError(f"LOG_LEVEL must be one of {', '.join(LOG_LEVELS)}, not {raw!r}")
     level = LOG_LEVELS[raw]
@@ -122,10 +133,11 @@ class Config:
     auth_token: str = field(default="", repr=False)
     allowed_hosts: tuple[str, ...] = ()
     allowed_origins: tuple[str, ...] = ()
+    audit_log: str = ""
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> Config:
-        env = dict(os.environ if env is None else env)
+        env = without_placeholders(dict(os.environ if env is None else env))
 
         username = env.get("BLUELINK_USERNAME", "").strip()
         password = _secret(env, "BLUELINK_PASSWORD")
@@ -134,10 +146,10 @@ class Config:
                 "BLUELINK_USERNAME and BLUELINK_PASSWORD (or BLUELINK_PASSWORD_FILE) must be set"
             )
 
-        region_name = env.get("BLUELINK_REGION", "europe").strip().lower()
+        region_name = (env.get("BLUELINK_REGION", "").strip() or "europe").lower()
         if region_name not in REGIONS:
             raise ConfigError(f"BLUELINK_REGION must be one of {', '.join(REGIONS)}, not {region_name!r}")
-        brand_name = env.get("BLUELINK_BRAND", "hyundai").strip().lower()
+        brand_name = (env.get("BLUELINK_BRAND", "").strip() or "hyundai").lower()
         if brand_name not in BRANDS:
             raise ConfigError(f"BLUELINK_BRAND must be one of {', '.join(BRANDS)}, not {brand_name!r}")
 
@@ -148,7 +160,7 @@ class Config:
             # An empty value turns token caching off.
             token_file = Path(token_raw).expanduser() if token_raw.strip() else None
 
-        transport = env.get("MCP_TRANSPORT", "stdio").strip().lower()
+        transport = (env.get("MCP_TRANSPORT", "").strip() or "stdio").lower()
         if transport not in ("stdio", "http"):
             raise ConfigError(f"MCP_TRANSPORT must be stdio or http, not {transport!r}")
 
@@ -215,4 +227,29 @@ class Config:
             auth_token=auth_token,
             allowed_hosts=hosts,
             allowed_origins=origins,
+            audit_log=audit_log(env),
         )
+
+
+AUDIT_LOG_STDERR = "stderr"
+
+
+def audit_log(env: dict[str, str]) -> str:
+    """BLUELINK_AUDIT_LOG: "" (off), "stderr" or the path of a file, which must be writable."""
+    raw = env.get("BLUELINK_AUDIT_LOG", "").strip()
+    if not raw or raw.lower() == AUDIT_LOG_STDERR:
+        return raw.lower()
+    path = str(Path(raw).expanduser())
+    try:
+        open_audit_log(path).close()
+    except OSError as ex:
+        raise ConfigError(
+            f"BLUELINK_AUDIT_LOG: can't write to {path}: {ex.strerror or type(ex).__name__}"
+        ) from None
+    return path
+
+
+def open_audit_log(path: str):
+    """Open the audit log for appending, creating it readable by its owner only."""
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+    return os.fdopen(fd, "a", encoding="utf-8")

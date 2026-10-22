@@ -1,5 +1,6 @@
 # Publishing a GitHub release (tag vX.Y.Z) builds the Docker image for
-# amd64 and arm64 and pushes it to ghcr.io/<owner>/bluelink-mcp.
+# amd64 and arm64, pushes it to ghcr.io/<owner>/bluelink-mcp, and attaches the
+# MCP Bundle (.mcpb) for Claude Desktop to the release.
 # See docs/releasing.md.
 name: Release
 
@@ -131,3 +132,59 @@ jobs:
             echo
             echo "$TAGS" | sed 's/^/- `/; s/$/`/'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  mcpb:
+    name: Build and upload the MCP Bundle
+    # After the image: that job validates the tag, and the tests run inside its build.
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload the release asset and append to the release notes
+      id-token: write # sign the build provenance attestation
+      attestations: write
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          # No cache, for the same reason as the image.
+          enable-cache: false
+      - run: uv sync --locked
+
+      - name: Build
+        run: uv run python scripts/mcpb.py pack "${TAG#v}"
+
+      - name: Validate the manifest
+        run: |
+          mkdir -p .build/unpacked
+          unzip -q "dist/bluelink-mcp-${TAG#v}.mcpb" -d .build/unpacked
+          npx -y @anthropic-ai/mcpb@2.1.2 validate .build/unpacked/manifest.json
+          test "$(jq -r .version .build/unpacked/manifest.json)" = "${TAG#v}"
+          (cd .build/unpacked && uv lock --check --offline)
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*.mcpb
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${TAG#v}"
+          gh release upload "$TAG" dist/*.mcpb --clobber
+          gh release view "$TAG" --json body --jq .body > notes.md
+          # Re-running the workflow must not add the section twice.
+          if grep -q '^## Claude Desktop' notes.md; then
+            exit 0
+          fi
+          {
+            echo
+            echo "## Claude Desktop"
+            echo
+            echo "Download \`bluelink-mcp-$version.mcpb\` and open it to install bluelink-mcp as a Claude Desktop extension. One bundle works on macOS, Windows and Linux: Claude Desktop installs Python and the dependencies with uv. See [Claude Desktop](https://bluelink-mcp.mattoddie.dev/docs/clients/#claude-desktop) for the settings."
+          } >> notes.md
+          gh release edit "$TAG" --notes-file notes.md

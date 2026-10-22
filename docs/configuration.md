@@ -1,10 +1,12 @@
 # Configuration
 
-bluelink-mcp is configured entirely with environment variables. With Docker Compose, put them in `.env` (start from [`example.env`](../example.env)). With uv, pass them from your MCP client's config.
+bluelink-mcp is configured entirely with environment variables. With Docker Compose, put them in `.env` (start from [`example.env`](../example.env)). With uv, pass them from your MCP client's config. The [Claude Desktop extension](clients.md#claude-desktop) sets them from its settings form.
 
 - [Your account](#your-account)
 - [Choosing a region](#choosing-a-region)
 - [Access levels](#access-levels)
+- [Keeping the tool list small](#keeping-the-tool-list-small)
+- [Audit log](#audit-log)
 - [Data freshness](#data-freshness)
 - [Token cache](#token-cache)
 - [MCP transport](#mcp-transport)
@@ -51,6 +53,44 @@ The region must match where your account was created, not where the car is now. 
 
 Tools that aren't allowed are **not registered at all**, so the assistant can't see them, let alone call them. The [tool reference](tools.md) shows which setting each tool needs.
 
+### Keeping the tool list small
+
+Most clients load every registered tool's definition into the model's context. bluelink-mcp is small, and the switches above decide how much of it is registered:
+
+| Settings | Tools | `tools/list` size |
+|---|---|---|
+| Defaults (read-only) | 6 | 4.2 KB |
+| `BLUELINK_ALLOW_LOCATION=true` | 7 | 4.7 KB |
+| `BLUELINK_ALLOW_WRITES=true` | 13 | 11.8 KB |
+| Writes, unlock and location all on | 15 | 13.9 KB |
+
+Sizes are of the `tools/list` result, measured with the server over stdio. Turn on only what you use: besides keeping the context small, a tool that isn't registered can't be misused.
+
+## Audit log
+
+| Variable | Default | Description |
+|---|---|---|
+| `BLUELINK_AUDIT_LOG` | (off) | Record every call of a tool that acts on the car. A file path appends JSON Lines to that file, which is created with mode `0600` if it doesn't exist (`~` is expanded). `stderr` writes the lines to standard error, next to the server's other logs. |
+
+Each line is one call of a command tool (`lock_vehicle`, `unlock_vehicle`, `start_climate`, `stop_climate`, `start_charging`, `stop_charging`, `set_charge_limits`, `flash_hazard_lights`) or of `refresh_vehicle_status`, which wakes the car. Calls that failed or were refused, such as an unlock the user didn't confirm or a command sent again too soon, are logged too. Reads aren't logged.
+
+```json
+{"time":"2026-10-22T07:41:09.512Z","tool":"start_climate","arguments":{"vehicle":null,"temperature":21,"duration_minutes":10,"defrost":false,"heated_rear_window_and_mirrors":false,"heated_steering_wheel":false,"front_left_seat":null,"front_right_seat":null,"rear_left_seat":null,"rear_right_seat":null,"wait":true},"result":{"vehicle":"Santa Fe","action_id":"5c1f…","status":"success"},"outcome":"ok"}
+```
+
+| Field | Meaning |
+|---|---|
+| `time` | When the call finished, in UTC (RFC 3339). |
+| `tool` | The tool name. |
+| `arguments` | The arguments, with defaults filled in. `confirm` (unlock's confirmation) is `[redacted]`, and a VIN given as `vehicle` is cut to its last 6 characters. |
+| `result` | For a successful call: the car's name, the command's `action_id` and its `status`. Nothing else from the result is logged, so the log never holds the car's location, VIN or status. |
+| `outcome` | `ok` or `error`. |
+| `error` | The error message, when `outcome` is `error`. |
+
+The server checks at startup that it can write to the file, and refuses to start if the directory doesn't exist or isn't writable. A write that fails later doesn't stop the tool call: the server logs one warning and carries on. The file is opened for each entry, so it can be rotated by moving it away; the next entry creates a new one.
+
+In Docker, put the log on the data volume, for example `BLUELINK_AUDIT_LOG=/data/audit.jsonl`, or use `BLUELINK_AUDIT_LOG=stderr` to see the lines in `docker compose logs`.
+
 ## Data freshness
 
 | Variable | Default | Description |
@@ -85,6 +125,8 @@ The server always uses the password and PIN you configured, so after changing yo
 | `MCP_ALLOWED_ORIGINS` | | Optional comma-separated list of extra `Origin` values browsers may call from, such as `https://claude.ai`. Needs `MCP_ALLOWED_HOSTS`. |
 
 The HTTP server serves the MCP endpoint at `/mcp` (`POST` only, with a JSON body of up to 4 MiB) and an unauthenticated health check at `/health`. `bluelink-mcp healthcheck` exits 0 when `/health` answers, for Docker's `HEALTHCHECK`.
+
+An empty variable counts as not set. So does a variable whose whole value is a placeholder such as `${user_config.pin}`, which MCP Bundle hosts like Claude Desktop pass on unchanged when an optional setting is left empty.
 
 `BLUELINK_PASSWORD`, `BLUELINK_PIN` and `MCP_AUTH_TOKEN` can each be read from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): set `BLUELINK_PASSWORD_FILE`, `BLUELINK_PIN_FILE` or `MCP_AUTH_TOKEN_FILE` to its path. Set the variable or its `_FILE` version, not both.
 

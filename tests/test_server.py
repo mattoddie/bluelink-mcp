@@ -768,3 +768,123 @@ def test_refresh_is_not_marked_read_only(tmp_path):
     tools = {t.name: t for t in anyio.run(server.list_tools)}
     assert tools["refresh_vehicle_status"].annotations.read_only_hint is False
     assert tools["get_vehicle_status"].annotations.read_only_hint is True
+
+
+# --- MCP Bundle settings ------------------------------------------------------------
+
+
+def test_unfilled_bundle_settings_are_unset(tmp_path):
+    """Claude Desktop passes an optional setting left empty as "" or as the literal placeholder."""
+    for blank in ("", "${user_config.%s}"):
+        env = {
+            **ENV,
+            "BLUELINK_PIN": blank.replace("%s", "pin"),
+            "BLUELINK_REGION": blank.replace("%s", "region"),
+            "BLUELINK_BRAND": blank.replace("%s", "brand"),
+            "BLUELINK_ALLOW_WRITES": blank.replace("%s", "allow_writes"),
+            "BLUELINK_ALLOW_UNLOCK": blank.replace("%s", "allow_unlock"),
+            "BLUELINK_ALLOW_LOCATION": blank.replace("%s", "allow_location"),
+            "BLUELINK_AUDIT_LOG": blank.replace("%s", "audit_log"),
+            "MCP_TRANSPORT": blank.replace("%s", "transport"),
+            "LOG_LEVEL": blank.replace("%s", "log_level"),
+        }
+        config = Config.from_env(env)
+        assert (config.region, config.brand, config.pin) == (1, 2, "")
+        assert not (config.allow_writes or config.allow_unlock or config.allow_location)
+        assert (config.audit_log, config.transport) == ("", "stdio")
+        assert log_level(env)[0] == logging.INFO
+
+
+def test_placeholder_credentials_are_missing():
+    with pytest.raises(ConfigError, match="BLUELINK_USERNAME and BLUELINK_PASSWORD"):
+        Config.from_env({**ENV, "BLUELINK_PASSWORD": "${user_config.password}"})
+
+
+def test_only_a_whole_placeholder_is_unset():
+    config = Config.from_env({**ENV, "BLUELINK_PASSWORD": "x${user_config.password}"})
+    assert config.password == "x${user_config.password}"
+
+
+# --- Audit log ----------------------------------------------------------------------
+
+
+def audit_lines(path):
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def test_audit_log_records_commands_only(tmp_path):
+    log = tmp_path / "audit.jsonl"
+    server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_AUDIT_LOG=str(log))
+    assert stat.S_IMODE(os.stat(log).st_mode) == 0o600
+    assert log.read_text() == ""
+
+    call(server, "get_vehicle_status")
+    call(server, "list_vehicles")
+    assert log.read_text() == ""
+
+    call(server, "lock_vehicle", {"wait": False})
+    call(server, "refresh_vehicle_status")
+    [lock, refresh] = audit_lines(log)
+    assert lock["tool"] == "lock_vehicle"
+    assert lock["arguments"] == {"vehicle": None, "wait": False}
+    assert lock["result"] == {"vehicle": "Santa Fe", "action_id": "act-1", "status": "pending"}
+    assert lock["outcome"] == "ok"
+    assert lock["time"].endswith("Z")
+    # A status result is reduced to the car's name: no VIN, no location, nothing else.
+    assert refresh == {**refresh, "tool": "refresh_vehicle_status", "result": {"vehicle": "Santa Fe"}}
+    assert "KMHXYZ" not in log.read_text() and "51.5" not in log.read_text()
+
+
+def test_audit_log_records_failures(tmp_path):
+    log = tmp_path / "audit.jsonl"
+    server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_AUDIT_LOG=str(log))
+    call(server, "lock_vehicle", {"wait": False})
+    with pytest.raises(ToolError):
+        call(server, "lock_vehicle", {"wait": False})
+    entry = audit_lines(log)[-1]
+    assert entry["outcome"] == "error"
+    assert "lock_vehicle was sent" in entry["error"]
+
+
+def test_audit_log_redacts_unlock_confirmation_and_vins(tmp_path):
+    log = tmp_path / "audit.jsonl"
+    server, _ = make(
+        tmp_path,
+        BLUELINK_ALLOW_WRITES="true",
+        BLUELINK_ALLOW_UNLOCK="true",
+        BLUELINK_AUDIT_LOG=str(log),
+    )
+    with pytest.raises(ToolError):
+        call(server, "unlock_vehicle", {"vehicle": "KMHXYZ12345678901", "confirm": "wrong"})
+    call(server, "unlock_vehicle", {"confirm": "Santa Fe", "wait": False})
+    refused, unlocked = audit_lines(log)
+    assert refused["outcome"] == "error"
+    assert refused["arguments"]["vehicle"] == "…678901"
+    assert refused["arguments"]["confirm"] == "[redacted]"
+    assert "answer" not in refused["arguments"]
+    assert unlocked["outcome"] == "ok" and unlocked["result"]["action_id"] == "act-3"
+    assert "Santa Fe" not in json.dumps(unlocked["arguments"])
+
+
+def test_audit_log_to_stderr(tmp_path, capsys):
+    server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_AUDIT_LOG="stderr")
+    call(server, "lock_vehicle", {"wait": False})
+    entry = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
+    assert entry["tool"] == "lock_vehicle"
+
+
+def test_audit_log_needs_a_writable_directory(tmp_path):
+    with pytest.raises(ConfigError, match="BLUELINK_AUDIT_LOG"):
+        Config.from_env({**ENV, "BLUELINK_AUDIT_LOG": str(tmp_path / "missing" / "audit.jsonl")})
+
+
+def test_audit_log_keeps_tool_schemas(tmp_path):
+    plain, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true")
+    logged, _ = make(
+        tmp_path,
+        BLUELINK_ALLOW_WRITES="true",
+        BLUELINK_ALLOW_UNLOCK="true",
+        BLUELINK_AUDIT_LOG=str(tmp_path / "audit.jsonl"),
+    )
+    schemas = lambda s: {t.name: t.input_schema for t in anyio.run(s.list_tools)}  # noqa: E731
+    assert schemas(plain) == schemas(logged)

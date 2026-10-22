@@ -1,0 +1,190 @@
+{
+  "manifest_version": "0.4",
+  "name": "bluelink-mcp",
+  "display_name": "Hyundai Bluelink / Kia Connect (bluelink-mcp)",
+  "version": "0.0.0-dev",
+  "description": "Check your Hyundai or Kia's charge, range, locks and location, pre-heat it and manage charging.",
+  "long_description": "An open-source MCP server for **Hyundai Bluelink**, **Kia Connect** (formerly UVO) and **Genesis Connect**. Ask how the car is doing in plain English: charge, fuel, range, locks, doors, windows, tyres, trips and energy use. If you allow it, Claude can also lock the car, pre-condition the cabin and start or stop charging.\n\n- **Read-only by default.** Commands need *Allow commands*; unlocking needs *Allow unlocking* as well, and asks you to confirm each time. The car's location needs *Share location*.\n- **Kind to your car.** Status comes from what the car last reported; waking it for live data and repeating commands are rate limited to protect the 12V battery and your account's daily API quota.\n- **Audit log.** Optionally record every command in a JSON Lines file.\n\nThe extension runs with uv, which Claude Desktop manages: the first start downloads Python and the dependencies, which takes a minute.\n\nbluelink-mcp is an independent community project, not affiliated with or endorsed by Hyundai, Kia or Genesis.",
+  "author": {
+    "name": "Matt Oddie",
+    "url": "https://github.com/mattoddie"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mattoddie/bluelink-mcp"
+  },
+  "homepage": "https://bluelink-mcp.mattoddie.dev",
+  "documentation": "https://bluelink-mcp.mattoddie.dev/docs/clients/#claude-desktop",
+  "support": "https://github.com/mattoddie/bluelink-mcp/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "uv",
+    "entry_point": "server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "--frozen",
+        "--no-dev",
+        "--quiet",
+        "server.py"
+      ],
+      "env": {
+        "MCP_TRANSPORT": "stdio",
+        "BLUELINK_USERNAME": "${user_config.username}",
+        "BLUELINK_PASSWORD": "${user_config.password}",
+        "BLUELINK_PIN": "${user_config.pin}",
+        "BLUELINK_REGION": "${user_config.region}",
+        "BLUELINK_BRAND": "${user_config.brand}",
+        "BLUELINK_ALLOW_WRITES": "${user_config.allow_writes}",
+        "BLUELINK_ALLOW_UNLOCK": "${user_config.allow_unlock}",
+        "BLUELINK_ALLOW_LOCATION": "${user_config.allow_location}",
+        "BLUELINK_AUDIT_LOG": "${user_config.audit_log}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "flash_hazard_lights",
+      "description": "Flash the hazard lights briefly, e.g. to find the car in a car park."
+    },
+    {
+      "name": "get_command_status",
+      "description": "Check whether an earlier remote command succeeded (pending, success, failed, timeout)."
+    },
+    {
+      "name": "get_energy_usage",
+      "description": "Get daily electric energy use (Wh) split into driving, climate, electronics and battery care, plus regenerated energy and distance. EVs and PHEVs in some regions."
+    },
+    {
+      "name": "get_trips",
+      "description": "Get driving history: trips for a day, or a month's summary with trip counts per day. Not every region supports this (Europe does)."
+    },
+    {
+      "name": "get_vehicle_location",
+      "description": "Get where the car is parked (latitude/longitude, and an address if geocoding is on)."
+    },
+    {
+      "name": "get_vehicle_status",
+      "description": "Get the car's last reported state: battery and fuel, range, charging, climate, locks, doors, windows, tyres, warnings and charging schedule. Does not wake the car."
+    },
+    {
+      "name": "list_vehicles",
+      "description": "List the vehicles on the account."
+    },
+    {
+      "name": "lock_vehicle",
+      "description": "Lock the car's doors."
+    },
+    {
+      "name": "refresh_vehicle_status",
+      "description": "Wake the car and fetch live state, then return it like get_vehicle_status. Uses a little 12V battery and API quota, so it is rate limited."
+    },
+    {
+      "name": "set_charge_limits",
+      "description": "Set the maximum charge level. Mainly for EVs; many plug-in hybrids don't support it."
+    },
+    {
+      "name": "start_charging",
+      "description": "Start charging now (the car must be plugged in). Overrides a charging schedule."
+    },
+    {
+      "name": "start_climate",
+      "description": "Start pre-conditioning the cabin (heating or cooling). Seat settings only apply to cars that support them. On a plug-in hybrid this runs from the high-voltage battery."
+    },
+    {
+      "name": "stop_charging",
+      "description": "Stop charging."
+    },
+    {
+      "name": "stop_climate",
+      "description": "Stop cabin pre-conditioning."
+    },
+    {
+      "name": "unlock_vehicle",
+      "description": "Unlock the car's doors. Only do this when the user clearly asks for it. With several cars on the account, give the car's exact name, VIN or ID. The server asks the user to confirm. If the client can't show that question, the call fails until `confirm` is set to the car's name or the last 6 characters of its VIN: ask the user first, and never guess or reuse an earlier answer."
+    }
+  ],
+  "tools_generated": true,
+  "keywords": [
+    "hyundai",
+    "kia",
+    "genesis",
+    "bluelink",
+    "kia connect",
+    "uvo",
+    "ev",
+    "car"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "python": ">=3.12"
+    }
+  },
+  "user_config": {
+    "username": {
+      "type": "string",
+      "title": "Email",
+      "description": "The email address you log in to the Bluelink, Kia Connect or Genesis Connect app with.",
+      "required": true
+    },
+    "password": {
+      "type": "string",
+      "title": "Password",
+      "description": "Your app password.",
+      "sensitive": true,
+      "required": true
+    },
+    "pin": {
+      "type": "string",
+      "title": "PIN",
+      "description": "Your 4-digit app PIN. Europe and Canada need it for commands; reads work without it.",
+      "sensitive": true,
+      "default": ""
+    },
+    "region": {
+      "type": "string",
+      "title": "Region",
+      "description": "Where your account was created: europe (including the UK), europe-cci (the newer EU apps: try it if europe fails), usa, canada, australia, nz, india, china or brazil.",
+      "default": "europe"
+    },
+    "brand": {
+      "type": "string",
+      "title": "Brand",
+      "description": "hyundai (Bluelink), kia (Kia Connect, formerly UVO) or genesis (Genesis Connect).",
+      "default": "hyundai"
+    },
+    "allow_writes": {
+      "type": "boolean",
+      "title": "Allow commands",
+      "description": "Let Claude send commands to the car: lock, climate, charging, charge limits and hazard lights. Off means read-only.",
+      "default": false
+    },
+    "allow_unlock": {
+      "type": "boolean",
+      "title": "Allow unlocking",
+      "description": "Also let Claude unlock the doors, after you confirm each time. Needs Allow commands.",
+      "default": false
+    },
+    "allow_location": {
+      "type": "boolean",
+      "title": "Share location",
+      "description": "Let Claude see where the car is parked. This reveals where you live, work and park.",
+      "default": false
+    },
+    "audit_log": {
+      "type": "string",
+      "title": "Audit log file",
+      "description": "Optional full path to a file, e.g. /Users/you/bluelink-audit.jsonl, where every command and live refresh is appended as a JSON line. The file is created if it doesn't exist; its folder must exist. stderr writes the lines to Claude Desktop's MCP log instead. Off when left empty.",
+      "default": ""
+    }
+  }
+}
