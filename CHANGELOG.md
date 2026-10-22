@@ -6,6 +6,8 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-22
+
 ### Added
 
 - **MCP Registry listing.** Stable releases are published to the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/bluelink-mcp`, with the Docker image (run over stdio) and the Claude Desktop bundle as packages. The entry is described by `server.json`; the image carries the `io.modelcontextprotocol.server.name` label the registry checks.
@@ -116,7 +118,8 @@ This release follows a security review. **It has breaking changes**; check the f
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.2...v0.1.3
