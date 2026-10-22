@@ -1,0 +1,110 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mattoddie/bluelink-mcp",
+  "title": "Hyundai Bluelink / Kia Connect",
+  "description": "Check your Hyundai or Kia's charge, range, locks and location, pre-heat it and manage charging.",
+  "repository": {
+    "url": "https://github.com/mattoddie/bluelink-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://bluelink-mcp.mattoddie.dev",
+  "version": "0.0.0-dev",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/mattoddie/bluelink-mcp:0.0.0-dev",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "docker",
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "-v",
+          "value": "bluelink-data:/data",
+          "description": "A named volume for the login token cache, so each session doesn't log in from scratch."
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "MCP_TRANSPORT",
+          "value": "stdio",
+          "description": "Run over stdio. The image defaults to HTTP."
+        },
+        {
+          "name": "BLUELINK_USERNAME",
+          "description": "The email address you log in to the Bluelink, Kia Connect or Genesis Connect app with.",
+          "isRequired": true
+        },
+        {
+          "name": "BLUELINK_PASSWORD",
+          "description": "Your app password.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "BLUELINK_PIN",
+          "description": "Your 4-digit app PIN. Europe and Canada need it for commands; reads work without it.",
+          "isSecret": true
+        },
+        {
+          "name": "BLUELINK_REGION",
+          "description": "Where your account was created. europe includes the UK; try europe-cci if europe fails.",
+          "default": "europe",
+          "choices": [
+            "europe",
+            "europe-cci",
+            "usa",
+            "canada",
+            "australia",
+            "nz",
+            "india",
+            "china",
+            "brazil"
+          ]
+        },
+        {
+          "name": "BLUELINK_BRAND",
+          "description": "hyundai (Bluelink), kia (Kia Connect, formerly UVO) or genesis (Genesis Connect).",
+          "default": "hyundai",
+          "choices": [
+            "hyundai",
+            "kia",
+            "genesis"
+          ]
+        },
+        {
+          "name": "BLUELINK_ALLOW_WRITES",
+          "description": "Allow commands to the car: lock, climate, charging, charge limits and hazard lights.",
+          "format": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "BLUELINK_ALLOW_UNLOCK",
+          "description": "Also allow unlocking, after you confirm each time. Needs BLUELINK_ALLOW_WRITES.",
+          "format": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "BLUELINK_ALLOW_LOCATION",
+          "description": "Share where the car is parked. This reveals where you live, work and park.",
+          "format": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "BLUELINK_AUDIT_LOG",
+          "description": "Record every command as JSON lines: stderr, or a path in the container such as /data/audit.jsonl.",
+          "placeholder": "stderr"
+        }
+      ]
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/bluelink-mcp/releases/download/v0.0.0-dev/bluelink-mcp-0.0.0-dev.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

@@ -23,7 +23,8 @@ LABEL org.opencontainers.image.title="bluelink-mcp" \
       org.opencontainers.image.description="MCP server for Hyundai Bluelink and Kia Connect" \
       org.opencontainers.image.source="https://github.com/mattoddie/bluelink-mcp" \
       org.opencontainers.image.documentation="https://bluelink-mcp.mattoddie.dev/docs/" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT" \
+      io.modelcontextprotocol.server.name="io.github.mattoddie/bluelink-mcp"
 RUN useradd --create-home --uid 1000 app && mkdir /data && chown app /data
 COPY --from=build /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH" \

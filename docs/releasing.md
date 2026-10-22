@@ -1,11 +1,12 @@
 # Releasing
 
-Releases are driven by **GitHub releases**. Publishing a release with a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/bluelink-mcp`, then attaches the Claude Desktop extension bundle (`bluelink-mcp-X.Y.Z.mcpb`) to the release. Nothing is published by merging to `main` alone.
+Releases are driven by **GitHub releases**. Publishing a release with a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/bluelink-mcp`, then attaches the Claude Desktop extension bundle (`bluelink-mcp-X.Y.Z.mcpb`) to the release. Stable releases are then published to the [MCP Registry](https://registry.modelcontextprotocol.io). Nothing is published by merging to `main` alone.
 
 - [Versioning](#versioning)
 - [Release checklist](#release-checklist)
 - [Pre-releases](#pre-releases)
 - [What the workflow does](#what-the-workflow-does)
+- [MCP Registry](#mcp-registry)
 - [If something goes wrong](#if-something-goes-wrong)
 - [Repository setup](#repository-setup)
 
@@ -39,6 +40,7 @@ The version comes **from the tag**. `pyproject.toml` stays at `0.0.0.dev0` in th
 
 4. **Watch the workflow.** Open **Actions → Release**. It takes a few minutes. When it finishes, the release notes gain a *Container image* section with the pull command, digest and tags.
 5. **Check the image:** `docker pull ghcr.io/mattoddie/bluelink-mcp:1.2.0`, and that the release has the `.mcpb` bundle attached.
+6. **Check the registry entry:** `curl -s 'https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mattoddie/bluelink-mcp' | jq '.servers[].server.version'` lists the new version.
 
 Release notes are generated from merged PR titles and grouped by label. The groups are set in [`.github/release.yml`](../.github/release.yml). Label PRs `breaking`, `enhancement`, `new-tool`, `bug`, `compatibility`, `documentation` or `dependencies` to sort them, or `skip-changelog` to leave a PR out.
 
@@ -50,7 +52,7 @@ To test a release candidate, use a pre-release tag and tick **Set as a pre-relea
 gh release create v1.3.0-rc.1 --target main --prerelease --generate-notes
 ```
 
-Pre-releases are published only under their exact version (`ghcr.io/mattoddie/bluelink-mcp:1.3.0-rc.1`). They never move `latest`, `1` or `1.3`.
+Pre-releases are published only under their exact version (`ghcr.io/mattoddie/bluelink-mcp:1.3.0-rc.1`). They never move `latest`, `1` or `1.3`, and they aren't published to the MCP Registry.
 
 ## What the workflow does
 
@@ -63,6 +65,45 @@ Pre-releases are published only under their exact version (`ghcr.io/mattoddie/bl
 | Supply chain | Attaches an SBOM and SLSA provenance to the image, and pushes a signed build provenance attestation (`gh attestation verify`). |
 | Release notes | Appends the pull command, digest and tags. |
 | MCP Bundle | After the image, builds `bluelink-mcp-X.Y.Z.mcpb` with `scripts/mcpb.py pack`, validates its manifest with `@anthropic-ai/mcpb`, attests it, uploads it to the release and adds a *Claude Desktop* section to the notes. |
+| MCP Registry | Stable releases only, after the image and the bundle. Stamps the version, image tag and the bundle's SHA-256 into `server.json`, validates it and publishes it with `mcp-publisher`. See [MCP Registry](#mcp-registry). |
+
+## MCP Registry
+
+[`server.json`](../server.json) describes bluelink-mcp for the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/bluelink-mcp`. It lists two packages:
+
+- **The Docker image**, `ghcr.io/mattoddie/bluelink-mcp:X.Y.Z`, run over stdio: `MCP_TRANSPORT` is fixed to `stdio`, and a `bluelink-data` volume keeps the login token cache. The registry checks that the image carries the `io.modelcontextprotocol.server.name` label from the [`Dockerfile`](../Dockerfile).
+- **The Claude Desktop bundle**, `bluelink-mcp-X.Y.Z.mcpb` from the release, with its SHA-256. The bundle is platform-independent, so there is one.
+
+The environment variables mirror the bundle's settings (`user_config` in [`mcpb/manifest.json`](../mcpb/manifest.json)). CI runs `uv run python scripts/registry.py check`, which fails if they drift apart, and validates `server.json` with `mcp-publisher validate`. Change the two files together.
+
+In the repository, `server.json` holds the `0.0.0-dev` placeholder, like the bundle manifest. The *registry* job in the release workflow:
+
+1. Installs `mcp-publisher` at a pinned version and checks its SHA-256. To upgrade it, change `MCP_PUBLISHER_VERSION` and `MCP_PUBLISHER_SHA256` in both [`release.yml`](../.github/workflows/release.yml) and [`ci.yml`](../.github/workflows/ci.yml), taking the hash of `mcp-publisher_linux_amd64.tar.gz` from the registry release's `registry_<version>_checksums.txt`.
+2. Downloads the release's bundle, hashes it and runs `python3 scripts/registry.py stamp X.Y.Z <sha256>`.
+3. Logs in with GitHub OIDC (`mcp-publisher login github-oidc`, which needs `id-token: write` on that job only, and no secrets) and runs `mcp-publisher publish`.
+
+A version can be published to the registry only once, and it can't be changed afterwards.
+
+### Re-running the registry step
+
+If only the *registry* job failed, open the run under **Actions → Release** and choose **Re-run failed jobs**. The image and bundle aren't rebuilt. If the version already reached the registry, the job notices and skips the publish.
+
+### Publishing by hand
+
+If the job can't be fixed in time, publish from a checkout of the release tag. You need to be an owner of the `mattoddie` GitHub organisation: the registry grants the `io.github.mattoddie` namespace only to owners.
+
+```sh
+git checkout v1.2.0
+version=1.2.0 dir=$(mktemp -d)
+gh release download "v$version" --pattern "bluelink-mcp-$version.mcpb" --dir "$dir"
+python3 scripts/registry.py stamp "$version" "$(sha256sum "$dir/bluelink-mcp-$version.mcpb" | cut -d' ' -f1)"
+mcp-publisher validate server.json
+mcp-publisher login github    # opens a browser to sign in to GitHub
+mcp-publisher publish server.json
+git checkout server.json
+```
+
+Install the same `mcp-publisher` version the workflow pins, from the [registry releases](https://github.com/modelcontextprotocol/registry/releases), and check its hash against the release's checksums file.
 
 ## If something goes wrong
 

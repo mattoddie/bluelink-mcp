@@ -85,6 +85,8 @@ claude mcp add --transport http bluelink http://<docker-host>:8080/mcp \
 
 Then ask *"How's the car doing?"*
 
+bluelink-mcp is also listed in the [MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mattoddie/bluelink-mcp) as `io.github.mattoddie/bluelink-mcp`, so clients that browse the registry can install the Docker image (over stdio) or the Claude Desktop bundle from there.
+
 ## Configuration
 
 All settings are environment variables; [`example.env`](example.env) lists and explains them. `BLUELINK_PASSWORD`, `BLUELINK_PIN` and `MCP_AUTH_TOKEN` can also be read from files with `BLUELINK_PASSWORD_FILE`, `BLUELINK_PIN_FILE` and `MCP_AUTH_TOKEN_FILE`.
