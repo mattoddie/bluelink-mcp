@@ -6,6 +6,8 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-22
+
 ### Added
 
 - **Claude Desktop extension.** Each release has a `bluelink-mcp-X.Y.Z.mcpb` bundle that installs bluelink-mcp into Claude Desktop with a settings form for the login, region, brand, the three switches and the audit log. It uses the MCPB uv runtime, so one bundle works on macOS, Windows and Linux. Build it with `uv run python scripts/mcpb.py pack <version>`.
@@ -110,7 +112,8 @@ This release follows a security review. **It has breaking changes**; check the f
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.1...v0.1.2
