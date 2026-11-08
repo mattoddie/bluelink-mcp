@@ -1,11 +1,10 @@
 ---
 import logo from "../../../docs/assets/logo.svg?raw";
 import { groups, totals } from "../lib/tools";
+import { DESCRIPTION as description } from "../lib/llms";
 
 const GITHUB = "https://github.com/mattoddie/bluelink-mcp";
 const title = "bluelink-mcp: talk to your Hyundai or Kia";
-const description =
-  "An open-source MCP server for Hyundai Bluelink and Kia Connect. Ask Claude and other AI assistants about your car's charge, range, locks and location, and let them pre-heat the cabin, lock up or start charging when you allow it.";
 
 const groupIcons: Record<string, string> = {
   status: "🚗",
@@ -54,6 +53,9 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
     <meta property="og:description" content={description} />
     <meta property="og:url" content={Astro.site} />
     <meta property="og:image" content={new URL("/og.png", Astro.site)} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={title} />
     <meta name="twitter:card" content="summary_large_image" />
     <script
       type="application/ld+json"
