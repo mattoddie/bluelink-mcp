@@ -18,6 +18,7 @@ npm run build     # static site in dist/
 | `scripts/sync-docs.mjs` | Copies `../docs/*.md`, `CONTRIBUTING.md`, `CHANGELOG.md` and `SECURITY.md` into Starlight, runs before every `dev` and `build` |
 | `astro.config.mjs` | Starlight config: sidebar, logo, social links |
 | `src/styles/docs.css` | Brand colours for the docs theme |
+| `src/pages/llms.txt.ts`, `src/pages/llms-full.txt.ts` | [`/llms.txt`](https://llmstxt.org) and `/llms-full.txt` for AI assistants, built from the same docs (shared code in `src/lib/llms.ts`). Add new docs pages to `ORDER` there, matching the sidebar |
 | `public/og.png` | Social preview image, rendered from `scripts/og.html` |
 
 **Don't edit docs here.** The Markdown in the repository's `docs/` folder is the source, and `src/content/docs/` is generated and not committed. Edit `docs/*.md`, and the change appears on GitHub and on the site. The logo comes from `docs/assets/logo.svg` too.
