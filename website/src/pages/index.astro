@@ -378,13 +378,25 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
       </section>
     </main>
 
+    <section class="more-servers" aria-label="More MCP servers">
+      <div class="wrap">
+        <a class="more-servers-card" href="https://mcp.mattoddie.dev/">
+          <span class="more-servers-icons" aria-hidden="true"><img src="https://proxmox-mcp.mattoddie.dev/favicon.svg" alt="" width="44" height="44" loading="lazy" /><img src="https://unifi-mcp.mattoddie.dev/favicon.svg" alt="" width="44" height="44" loading="lazy" /><img src="https://crunch-mcp.mattoddie.dev/favicon.svg" alt="" width="44" height="44" loading="lazy" /><img src="https://octopus-mcp.mattoddie.dev/favicon.svg" alt="" width="44" height="44" loading="lazy" /><img src="https://hive-mcp.mattoddie.dev/favicon.svg" alt="" width="44" height="44" loading="lazy" /></span>
+          <span class="more-servers-text">
+            <span class="more-servers-title">More MCP servers by Matt Oddie</span>
+            <span class="more-servers-desc">Free, open-source servers that connect your AI assistant to Proxmox VE, UniFi, Crunch Accounting, Octopus Energy and Hive.</span>
+          </span>
+          <span class="more-servers-go">See all servers <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 11 11 3M5 3h6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+        </a>
+      </div>
+    </section>
+
     <footer class="footer">
       <div class="wrap foot-inner">
         <div class="foot-links">
           <a href="/docs/">Docs</a>
           <a href="/docs/tools/">Tools</a>
           <a href={GITHUB}>GitHub</a>
-          <a href="https://mcp.mattoddie.dev/">More MCP servers</a>
           <a href={`${GITHUB}/releases`}>Releases</a>
           <a href="/docs/security-policy/">Security</a>
           <a href="/docs/changelog/">Changelog</a>
@@ -733,6 +745,20 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
       .final-logo svg { width: 72px; height: 72px; filter: drop-shadow(0 12px 30px rgba(14, 165, 233, 0.5)); }
       .final h2 { margin-top: 24px; }
       .final p { color: var(--muted); font-size: 18px; margin: 16px 0 30px; }
+
+      /* More servers: a card above the footer linking to mcp.mattoddie.dev. The same markup is on each server's site. */
+      .more-servers { padding: 24px 0 56px; }
+      .more-servers-card { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; padding: 22px 26px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); color: var(--text); text-decoration: none; transition: border-color 0.15s ease; }
+      .more-servers-card:hover { border-color: var(--muted); }
+      .more-servers-icons { display: flex; flex: none; }
+      .more-servers-icons img { width: 44px; height: 44px; border-radius: 10px; box-shadow: 0 0 0 3px var(--bg); }
+      .more-servers-icons img + img { margin-left: -8px; }
+      .more-servers-text { flex: 1 1 280px; display: flex; flex-direction: column; gap: 3px; }
+      .more-servers-title { font-family: var(--display); font-weight: 700; font-size: 1.2rem; line-height: 1.2; }
+      .more-servers-desc { color: var(--muted); font-size: 0.95rem; line-height: 1.45; }
+      .more-servers-go { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; color: #7dd3fc; white-space: nowrap; }
+      .more-servers-go svg { width: 13px; height: 13px; }
+      .more-servers-card:hover .more-servers-go { text-decoration: underline; }
 
       .footer { border-top: 1px solid var(--line); padding: 36px 0 calc(36px + env(safe-area-inset-bottom, 0px)); background: var(--bg-2); }
       .foot-inner { display: grid; gap: 14px; }
