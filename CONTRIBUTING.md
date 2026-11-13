@@ -91,7 +91,7 @@ Changing an existing tool's name or arguments in an incompatible way, or moving 
 
 ## Releases
 
-Releases are made by maintainers by publishing a GitHub release. That triggers the workflow that builds and pushes the Docker image. The changelog update for a release goes in a small pull request titled `chore(release): vX.Y.Z`. See [docs/releasing.md](docs/releasing.md).
+Releases are made by maintainers by pushing a version tag on `main`. That triggers the workflow that builds and pushes the Docker image, attaches the Claude Desktop bundle to a draft release, publishes the release and, for stable releases, publishes to the MCP Registry. The changelog update for a release goes in a small pull request titled `chore(release): vX.Y.Z`. See [docs/releasing.md](docs/releasing.md).
 
 ## Getting help
 
