@@ -372,10 +372,8 @@ def test_token_cache_leaves_no_temporary_files(tmp_path):
 
 def test_unsupported_region_and_brand_is_a_config_error():
     check_supported(Config.from_env(ENV))
-    with pytest.raises(ConfigError, match="genesis is not supported in BLUELINK_REGION=europe-cci"):
-        check_supported(
-            Config.from_env({**ENV, "BLUELINK_REGION": "europe-cci", "BLUELINK_BRAND": "genesis"})
-        )
+    with pytest.raises(ConfigError, match="hyundai is not supported in BLUELINK_REGION=nz"):
+        check_supported(Config.from_env({**ENV, "BLUELINK_REGION": "nz", "BLUELINK_BRAND": "hyundai"}))
 
 
 # --- errors ----------------------------------------------------------------

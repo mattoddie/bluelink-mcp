@@ -6,6 +6,10 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+### Added
+
+- Genesis cars in `BLUELINK_REGION=europe-cci`, from hyundai-kia-connect-api 5.1.2.
+
 ## [0.3.1] - 2026-10-22
 
 ### Added
