@@ -82,7 +82,24 @@ Other settings keep their defaults, including the login token cache in `~/.local
 
 Claude Desktop also starts MCP servers listed in its config file over stdio. Open **Settings → Developer → Edit Config** and add one of these.
 
-With uv:
+With a [Homebrew or pip install](deployment.md#running-without-docker), point `command` at the installed `bluelink-mcp`, for example `/opt/homebrew/bin/bluelink-mcp` (run `which bluelink-mcp` to find it), with no `args`:
+
+```json
+{
+  "mcpServers": {
+    "bluelink": {
+      "command": "/opt/homebrew/bin/bluelink-mcp",
+      "env": {
+        "BLUELINK_USERNAME": "you@example.com",
+        "BLUELINK_PASSWORD": "your-password",
+        "BLUELINK_PIN": "1234"
+      }
+    }
+  }
+}
+```
+
+With uv, from a clone:
 
 ```json
 {

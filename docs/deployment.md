@@ -95,6 +95,37 @@ Then point clients at `https://bluelink.example.com/mcp`.
 
 ## Running without Docker
 
+Outside Docker, the login token is cached in `~/.local/state/bluelink-mcp/token.json` (see `BLUELINK_TOKEN_FILE` in [Configuration](configuration.md)).
+
+### With Homebrew
+
+On macOS or Linux:
+
+```sh
+brew install mattoddie/tap/bluelink-mcp
+```
+
+This installs bluelink-mcp and its dependencies into a private virtualenv with Homebrew's Python, from the release's wheel and hash-locked requirements file. `brew upgrade` picks up new versions. See the [tap](https://github.com/mattoddie/homebrew-tap) for details.
+
+### With pip
+
+Each [release](https://github.com/mattoddie/bluelink-mcp/releases/latest) has a wheel and a `requirements.txt` that pins every dependency with its hash. With Python 3.12 or later:
+
+```sh
+VERSION=1.2.3   # the latest release, without the v
+base=https://github.com/mattoddie/bluelink-mcp/releases/download/v$VERSION
+curl -fsSLO $base/bluelink_mcp-$VERSION-py3-none-any.whl
+curl -fsSLO $base/bluelink-mcp-$VERSION-requirements.txt
+python3 -m venv ~/.local/share/bluelink-mcp
+~/.local/share/bluelink-mcp/bin/pip install --require-hashes -r bluelink-mcp-$VERSION-requirements.txt
+~/.local/share/bluelink-mcp/bin/pip install --no-deps bluelink_mcp-$VERSION-py3-none-any.whl
+~/.local/share/bluelink-mcp/bin/bluelink-mcp version
+```
+
+The release's `SHA256SUMS` file and build provenance attestations cover both files (`gh attestation verify <file> -R mattoddie/bluelink-mcp`).
+
+### From a clone
+
 You need Python 3.12+ and [uv](https://docs.astral.sh/uv/):
 
 ```sh
@@ -103,4 +134,4 @@ uv sync --no-dev
 MCP_TRANSPORT=http MCP_AUTH_TOKEN=... BLUELINK_USERNAME=... BLUELINK_PASSWORD=... uv run bluelink-mcp
 ```
 
-Run it under systemd or another supervisor to keep it running.
+However you install it, run it under systemd or another supervisor to keep it running in HTTP mode, or let your MCP client start it over stdio.

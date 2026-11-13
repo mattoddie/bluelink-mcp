@@ -124,7 +124,7 @@ The server always uses the password and PIN you configured, so after changing yo
 | `MCP_ALLOWED_HOSTS` | | Optional comma-separated allow-list of `Host` header values, for DNS rebinding protection, such as `bluelink.example.com,192.168.1.20:8080`. An entry without a port matches any port. |
 | `MCP_ALLOWED_ORIGINS` | | Optional comma-separated list of extra `Origin` values browsers may call from, such as `https://claude.ai`. Needs `MCP_ALLOWED_HOSTS`. |
 
-The HTTP server serves the MCP endpoint at `/mcp` (`POST` only, with a JSON body of up to 4 MiB) and an unauthenticated health check at `/health`. `bluelink-mcp healthcheck` exits 0 when `/health` answers, for Docker's `HEALTHCHECK`.
+The HTTP server serves the MCP endpoint at `/mcp` (`POST` only, with a JSON body of up to 4 MiB) and an unauthenticated health check at `/health`. `bluelink-mcp healthcheck` exits 0 when `/health` answers, for Docker's `HEALTHCHECK`. `bluelink-mcp version` prints the version.
 
 An empty variable counts as not set. So does a variable whose whole value is a placeholder such as `${user_config.pin}`, which MCP Bundle hosts like Claude Desktop pass on unchanged when an optional setting is left empty.
 
