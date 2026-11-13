@@ -6,6 +6,8 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-13
+
 ### Added
 
 - Each release now has a wheel and a hash-locked `requirements.txt`, so you can install bluelink-mcp without Docker, with Homebrew (`brew install mattoddie/tap/bluelink-mcp`) or pip. See [Running without Docker](docs/deployment.md#running-without-docker).
@@ -128,7 +130,8 @@ This release follows a security review. **It has breaking changes**; check the f
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.1.3...v0.2.0
