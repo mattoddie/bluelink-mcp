@@ -40,7 +40,7 @@ The variables all start with `BLUELINK_`, whatever the brand. For a Kia, use you
 | `china` | China |
 | `brazil` | Brazil (Hyundai only) |
 
-The region must match where your account was created, not where the car is now. A brand the region doesn't support (such as `genesis` with `europe-cci`, `hyundai` with `nz` or `kia` with `brazil`) stops the server at startup. See [Compatibility](compatibility.md) for what each region supports.
+The region must match where your account was created, not where the car is now. A brand the region doesn't support (such as `hyundai` with `nz` or `kia` with `brazil`) stops the server at startup. See [Compatibility](compatibility.md) for what each region supports.
 
 ## Access levels
 
