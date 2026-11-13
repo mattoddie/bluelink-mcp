@@ -120,7 +120,7 @@ All settings are environment variables; [`example.env`](example.env) lists and e
 
 In the UK and the rest of Europe, start with `europe`, the classic Bluelink and Kia Connect Europe service. Some newer Hyundais and Kias use the CCI/"OneApp" backend instead. If login or status fails with `europe`, try `europe-cci`.
 
-Not every brand is available everywhere. New Zealand is Kia only, Brazil is Hyundai only, and Genesis doesn't work with `europe-cci`. See the [compatibility table](docs/compatibility.md#regions-and-brands).
+Not every brand is available everywhere. New Zealand is Kia only, and Brazil is Hyundai only. See the [compatibility table](docs/compatibility.md#regions-and-brands).
 
 ## Being kind to your car (and your account)
 

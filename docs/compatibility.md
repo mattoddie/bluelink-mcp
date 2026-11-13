@@ -23,7 +23,7 @@ The project, its settings and these docs say "Bluelink", but they mean the Kia a
 | Region (`BLUELINK_REGION`) | Brands | Notes |
 |---|---|---|
 | Europe (`europe`), including the UK | Hyundai, Kia, Genesis | The classic Bluelink / Kia Connect / Genesis Connect Europe service |
-| Europe CCI (`europe-cci`) | Hyundai, Kia | Hyundai's and Kia's newer EU backend. Genesis isn't supported. |
+| Europe CCI (`europe-cci`) | Hyundai, Kia, Genesis | The newer EU backend, used by the newer apps on some recent cars |
 | USA (`usa`) | Hyundai, Kia, Genesis | |
 | Canada (`canada`) | Hyundai, Kia, Genesis | Needs the PIN for commands |
 | Australia (`australia`) | Hyundai, Kia, Genesis | |
