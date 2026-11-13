@@ -6,6 +6,10 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+### Security
+
+- Updated opentelemetry-api to 1.45.2 (CVE-2026-126360) and soupsieve to 4.1 (CVE-2026-126190).
+
 ## [0.3.1] - 2026-10-22
 
 ### Added
