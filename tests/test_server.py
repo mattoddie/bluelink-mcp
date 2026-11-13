@@ -13,7 +13,8 @@ from hyundai_kia_connect_api.exceptions import APIError, AuthenticationError, Au
 from hyundai_kia_connect_api.Token import Token
 from mcp.server.mcpserver.exceptions import ToolError
 
-from bluelink_mcp.__main__ import MAX_BODY_BYTES, healthcheck_url, http_app, transport_security
+from bluelink_mcp import __version__
+from bluelink_mcp.__main__ import MAX_BODY_BYTES, healthcheck_url, http_app, main, transport_security
 from bluelink_mcp.client import BluelinkClient, check_supported
 from bluelink_mcp.config import Config, ConfigError, log_level
 from bluelink_mcp.server import build_server
@@ -735,6 +736,13 @@ def test_secrets_can_come_from_files(tmp_path):
 )
 def test_healthcheck_url(env, url):
     assert healthcheck_url(env) == url
+
+
+@pytest.mark.parametrize("arg", ["version", "--version", "-v"])
+def test_version_command(monkeypatch, capsys, arg):
+    monkeypatch.setattr("sys.argv", ["bluelink-mcp", arg])
+    main()
+    assert capsys.readouterr().out.strip() == __version__
 
 
 @pytest.mark.parametrize(

@@ -240,8 +240,11 @@ def healthcheck() -> int:
 def main() -> None:
     if sys.argv[1:] == ["healthcheck"]:
         sys.exit(healthcheck())
+    if sys.argv[1:] in (["version"], ["--version"], ["-v"]):
+        print(__version__)
+        return
     if sys.argv[1:]:
-        sys.exit("usage: bluelink-mcp [healthcheck]")
+        sys.exit("usage: bluelink-mcp [healthcheck | version]")
 
     try:
         level, library_level = log_level(dict(os.environ))

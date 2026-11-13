@@ -1,6 +1,6 @@
 # Releasing
 
-Releases are driven by **version tags**. Pushing a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow creates a draft GitHub release, builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/bluelink-mcp`, attaches the Claude Desktop extension bundle (`bluelink-mcp-X.Y.Z.mcpb`) to the draft, then publishes the release. Stable releases are then published to the [MCP Registry](https://registry.modelcontextprotocol.io). Nothing is published by merging to `main` alone.
+Releases are driven by **version tags**. Pushing a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow creates a draft GitHub release, builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/bluelink-mcp`, attaches the Claude Desktop extension bundle (`bluelink-mcp-X.Y.Z.mcpb`), the wheel and a hash-locked requirements file to the draft, then publishes the release. Stable releases are then published to the [MCP Registry](https://registry.modelcontextprotocol.io). Nothing is published by merging to `main` alone.
 
 - [Versioning](#versioning)
 - [Release checklist](#release-checklist)
@@ -36,7 +36,7 @@ The version comes **from the tag**. `pyproject.toml` stays at `0.0.0.dev0` in th
    git push origin v1.2.0
    ```
 
-4. **Watch the workflow.** Open **Actions → Release**. It takes a few minutes. It creates a draft release with notes generated from the merged PRs, adds a *Container image* section with the pull command, digest and tags, attaches the bundle and adds a *Claude Desktop* section, then publishes the release.
+4. **Watch the workflow.** Open **Actions → Release**. It takes a few minutes. It creates a draft release with notes generated from the merged PRs, adds a *Container image* section with the pull command, digest and tags, attaches the bundle, wheel and requirements file and adds *Claude Desktop* and *Without Docker* sections, then publishes the release.
 5. **Edit the release notes** if needed. The notes and title of a published release can still be edited; its assets and tag can't.
 6. **Check the image:** `docker pull ghcr.io/mattoddie/bluelink-mcp:1.2.0`, and that the release has the `.mcpb` bundle attached.
 7. **Check the registry entry:** `curl -s 'https://registry.modelcontextprotocol.io/v0/servers?search=io.github.mattoddie/bluelink-mcp' | jq '.servers[].server.version'` lists the new version.
@@ -65,7 +65,7 @@ Pre-releases are published only under their exact version (`ghcr.io/mattoddie/bl
 | Push | To `ghcr.io/mattoddie/bluelink-mcp` using the workflow's `GITHUB_TOKEN`. No personal tokens are needed. |
 | Supply chain | Attaches an SBOM and SLSA provenance to the image, and pushes a signed build provenance attestation (`gh attestation verify`). |
 | Release notes | Appends the pull command, digest and tags. |
-| MCP Bundle | After the image, builds `bluelink-mcp-X.Y.Z.mcpb` with `scripts/mcpb.py pack`, validates its manifest with `@anthropic-ai/mcpb`, attests it, uploads it to the draft release and adds a *Claude Desktop* section to the notes. |
+| MCP Bundle and Python package | After the image, builds `bluelink-mcp-X.Y.Z.mcpb` with `scripts/mcpb.py pack`, the wheel (`uv build`) and `bluelink-mcp-X.Y.Z-requirements.txt` (`uv export`, every dependency pinned with its hash), and writes `SHA256SUMS`. It installs the wheel into a fresh virtualenv from the requirements file and checks `bluelink-mcp version`, validates the bundle's manifest with `@anthropic-ai/mcpb`, attests all three files, uploads them to the draft release and adds *Claude Desktop* and *Without Docker* sections to the notes. The [Homebrew tap](https://github.com/mattoddie/homebrew-tap) installs from the wheel and requirements file. |
 | Publish | Publishes the draft once the image and the bundle are in place. Published releases are [immutable](#immutable-releases). |
 | MCP Registry | Stable releases only, after the release is published. Stamps the version, image tag and the bundle's SHA-256 into `server.json`, validates it and publishes it with `mcp-publisher`. See [MCP Registry](#mcp-registry). |
 

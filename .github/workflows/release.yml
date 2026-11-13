@@ -1,6 +1,7 @@
 # Pushing a version tag (vX.Y.Z) creates a draft GitHub release, builds the
 # Docker image for amd64 and arm64 and pushes it to ghcr.io/<owner>/bluelink-mcp,
-# attaches the MCP Bundle (.mcpb) for Claude Desktop to the draft, then publishes
+# attaches the MCP Bundle (.mcpb) for Claude Desktop, the wheel and a hash-locked
+# requirements file to the draft, then publishes
 # the release. Releases are immutable once published, so everything is attached
 # first. Stable releases are then published to the MCP Registry. See
 # docs/releasing.md.
@@ -197,14 +198,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   mcpb:
-    name: Build and upload the MCP Bundle
+    name: Build and upload the MCP Bundle and Python package
     # After the image: the tests run inside its build.
     needs: [prepare, image]
     # A published release is immutable, so a re-run can't replace its bundle.
     if: needs.prepare.outputs.draft == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: write # upload the release asset and append to the release notes
+      contents: write # upload the release assets and append to the release notes
       id-token: write # sign the build provenance attestation
       attestations: write
     steps:
@@ -218,7 +219,30 @@ jobs:
       - run: uv sync --locked
 
       - name: Build
-        run: uv run python scripts/mcpb.py pack "${TAG#v}"
+        run: |
+          version="${TAG#v}"
+          uv run python scripts/mcpb.py pack "$version"
+          # The wheel and a hash-locked list of its dependencies, for installing without Docker
+          # or Claude Desktop (the Homebrew formula uses these).
+          uv version --frozen "$version"
+          uv build --wheel --out-dir dist
+          uv export --frozen --no-dev --no-emit-project --format requirements-txt \
+            -o "dist/bluelink-mcp-$version-requirements.txt"
+          (cd dist && sha256sum *.mcpb *.whl *-requirements.txt > SHA256SUMS)
+
+      - name: Check the Python package
+        run: |
+          version="${TAG#v}"
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --require-hashes --only-binary :all: \
+            -r "dist/bluelink-mcp-$version-requirements.txt"
+          # Python normalises the version in the wheel's name (1.2.3-rc.1 becomes 1.2.3rc1).
+          wheel=$(ls dist/bluelink_mcp-*-py3-none-any.whl)
+          wheel_version=${wheel#dist/bluelink_mcp-}
+          wheel_version=${wheel_version%-py3-none-any.whl}
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --no-deps "$wheel"
+          test "$("$RUNNER_TEMP/venv/bin/bluelink-mcp" version)" = "$wheel_version"
+          (cd dist && sha256sum -c SHA256SUMS)
 
       - name: Validate the manifest
         run: |
@@ -231,14 +255,18 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: dist/*.mcpb
+          subject-path: |
+            dist/*.mcpb
+            dist/*.whl
+            dist/*-requirements.txt
 
       - name: Upload to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${TAG#v}"
-          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" dist/*.mcpb --clobber
+          wheel=$(basename dist/bluelink_mcp-*-py3-none-any.whl)
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" dist/*.mcpb dist/*.whl dist/*-requirements.txt dist/SHA256SUMS --clobber
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
           # Re-running the workflow must not add the section twice.
           if grep -q '^## Claude Desktop' notes.md; then
@@ -249,6 +277,10 @@ jobs:
             echo "## Claude Desktop"
             echo
             echo "Download \`bluelink-mcp-$version.mcpb\` and open it to install bluelink-mcp as a Claude Desktop extension. One bundle works on macOS, Windows and Linux: Claude Desktop installs Python and the dependencies with uv. See [Claude Desktop](https://bluelink-mcp.mattoddie.dev/docs/clients/#claude-desktop) for the settings."
+            echo
+            echo "## Without Docker"
+            echo
+            echo "Install with [Homebrew](https://github.com/mattoddie/homebrew-tap) on macOS or Linux: \`brew install mattoddie/tap/bluelink-mcp\`. Or install the wheel and its hash-locked dependencies into a virtualenv with Python 3.12 or later: \`pip install --require-hashes -r bluelink-mcp-$version-requirements.txt\`, then \`pip install --no-deps $wheel\`. See [Running without Docker](https://bluelink-mcp.mattoddie.dev/docs/deployment/#running-without-docker)."
           } >> notes.md
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
 
