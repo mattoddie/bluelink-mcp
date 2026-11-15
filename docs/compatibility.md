@@ -42,6 +42,7 @@ Status, location, live refresh and the basic commands (lock, climate, charging) 
 - **Daily energy use** (`get_energy_usage`) is reported by EVs and plug-in hybrids, mainly in Europe.
 - **Charge limits** are for EVs. Most plug-in hybrids don't support them.
 - **Charging and departure schedules** (`set_charging_schedule`, `set_departure_schedule`) work in Europe, `europe-cci`, Australia, New Zealand, China and India, for EVs and plug-in hybrids. Bluelink takes the whole schedule at once, so the server fills in the settings you don't change from the car's last reported state, and refuses if the car doesn't report one.
+- **Charge port and charging current** (`open_charge_port`, `close_charge_port`, `set_charging_current`) work in Europe, `europe-cci`, Australia, New Zealand, China and India, on cars that have a motorised port door or a selectable AC current. In `europe` the charging current needs a recent car (CCS2 protocol).
 - **Hazard lights and horn** (`flash_hazard_lights`, `sound_horn_and_flash_lights`) aren't available in Canada or for Kia in the USA. The server refuses them there without contacting the car.
 - **`europe-cci`**: the library turns commands on brand by brand once they've been tested on a real car (all of them for Hyundai, some for Kia, none yet for Genesis). The others report that they aren't available yet.
 
@@ -61,7 +62,7 @@ Plug-in hybrids, such as the Santa Fe, Tucson and Kia Sorento/Sportage PHEVs, re
 
 ## Known gaps
 
-- **Windows, charge port, valet mode and navigation** aren't exposed, although the library supports some of them on some cars.
+- **Windows, valet mode and navigation** aren't exposed, although the library supports some of them on some cars.
 - **Hazard-light status in the USA** (Hyundai and Genesis): the library remembers what kind of command an action was only until its first status check, so later checks of a `flash_hazard_lights` command, whether while waiting or with `get_command_status`, may report the wrong status. The lights still flash. This is a library issue.
 - **One-time passcodes**: if the service asks for an OTP at login (some US Kia accounts), the server can't complete it. Log in through the app once, then try again.
 - The Bluelink, Kia Connect and Genesis Connect APIs are unofficial and undocumented. Hyundai and Kia can change them at any time, and fixes usually arrive in the library first. Keep the image up to date.

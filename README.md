@@ -47,6 +47,8 @@ It's built on [`hyundai_kia_connect_api`](https://github.com/Hyundai-Kia-Connect
 | `start_climate` / `stop_climate` | Pre-condition the cabin: temperature, duration, defrost, heated rear window/mirrors and steering wheel, seats | writes |
 | `start_charging` / `stop_charging` | Start or stop charging | writes |
 | `set_charge_limits` | AC/DC charge limits (EVs; most plug-in hybrids don't support this) | writes |
+| `set_charging_current` | Limit the AC charging current (100, 90 or 60%) | writes |
+| `open_charge_port` / `close_charge_port` | Open or close the charge port door | writes |
 | `set_charging_schedule` / `set_departure_schedule` | Scheduled off-peak charging, and the two departure times with their pre-conditioning | writes |
 | `flash_hazard_lights` | Flash the hazards to find the car | writes |
 | `sound_horn_and_flash_lights` | Sound the horn and flash the hazards | writes |

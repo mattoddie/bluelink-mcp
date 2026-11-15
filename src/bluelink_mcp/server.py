@@ -74,6 +74,8 @@ TimeArg = Annotated[
     ),
 ]
 KeepBool = Annotated[bool | None, Field(description="Leave out to keep it as is.")]
+# The library's charging current levels.
+CHARGING_CURRENT_LEVELS = {100: 1, 90: 2, 60: 3}
 USA_MIN_F, USA_MAX_F = 62, 82
 # Bluelink Canada's oldest cars (before model year 2020) start at 16 °C.
 CANADA_OLD_MODEL_YEAR, CANADA_OLD_MIN_C = 2020, 16
@@ -430,6 +432,51 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         return await command(
             vehicle, "set_charge_limits", lambda m, v: m.set_charge_limits(v.id, ac_percent, dc_percent), wait
         )
+
+    @mcp.tool(title="Open the charge port", annotations=WRITE)
+    @logged()
+    async def open_charge_port(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+        """Open the charging port door, ready to plug in. EVs and plug-in hybrids with a
+        motorised port door, in Europe, Australia, New Zealand, China and India."""
+
+        def open_port(m: Any, v: Any) -> str | None:
+            require(m, "charge_port_action", "Opening the charge port")
+            return m.open_charge_port(v.id)
+
+        return await command(vehicle, "open_charge_port", open_port, wait)
+
+    @mcp.tool(title="Close the charge port", annotations=WRITE)
+    @logged()
+    async def close_charge_port(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+        """Close the charging port door. EVs and plug-in hybrids with a motorised port door,
+        in Europe, Australia, New Zealand, China and India."""
+
+        def close_port(m: Any, v: Any) -> str | None:
+            require(m, "charge_port_action", "Closing the charge port")
+            return m.close_charge_port(v.id)
+
+        return await command(vehicle, "close_charge_port", close_port, wait)
+
+    @mcp.tool(title="Set the AC charging current", annotations=WRITE)
+    @logged()
+    async def set_charging_current(
+        percent: Annotated[
+            Literal[100, 90, 60],
+            Field(description="Maximum AC charging current, as a share of the full current: 100, 90 or 60."),
+        ],
+        vehicle: VehicleArg = None,
+        wait: WaitArg = True,
+    ) -> dict[str, Any]:
+        """Limit the current the car draws when AC charging, e.g. to go easy on a weak
+        household socket or circuit. Recent EVs in Europe, Australia, New Zealand, China and
+        India."""
+        level = CHARGING_CURRENT_LEVELS[percent]
+
+        def set_current(m: Any, v: Any) -> str | None:
+            require(m, "set_charging_current", "Setting the charging current")
+            return m.set_charging_current(v.id, level)
+
+        return await command(vehicle, "set_charging_current", set_current, wait)
 
     @mcp.tool(title="Set the charging schedule", annotations=WRITE)
     @logged()

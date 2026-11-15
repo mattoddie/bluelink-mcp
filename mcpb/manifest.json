@@ -47,6 +47,10 @@
   },
   "tools": [
     {
+      "name": "close_charge_port",
+      "description": "Close the charging port door. EVs and plug-in hybrids with a motorised port door, in Europe, Australia, New Zealand, China and India."
+    },
+    {
       "name": "flash_hazard_lights",
       "description": "Flash the hazard lights briefly, e.g. to find the car in a car park. Not available in Canada or for Kia in the USA."
     },
@@ -79,12 +83,20 @@
       "description": "Lock the car's doors."
     },
     {
+      "name": "open_charge_port",
+      "description": "Open the charging port door, ready to plug in. EVs and plug-in hybrids with a motorised port door, in Europe, Australia, New Zealand, China and India."
+    },
+    {
       "name": "refresh_vehicle_status",
       "description": "Wake the car and fetch live state, then return it like get_vehicle_status. Uses a little 12V battery and API quota, so it is rate limited."
     },
     {
       "name": "set_charge_limits",
       "description": "Set the maximum charge level. Mainly for EVs; many plug-in hybrids don't support it."
+    },
+    {
+      "name": "set_charging_current",
+      "description": "Limit the current the car draws when AC charging, e.g. to go easy on a weak household socket or circuit. Recent EVs in Europe, Australia, New Zealand, China and India."
     },
     {
       "name": "set_charging_schedule",
