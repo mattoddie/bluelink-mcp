@@ -20,7 +20,7 @@ from mcp.server.mcpserver import (
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
-from . import __version__
+from . import __version__, schedule
 from .audit import AuditLog, audited
 from .client import BluelinkClient, BluelinkError, require
 from .config import REGIONS, Config
@@ -65,6 +65,15 @@ SeatArg = Annotated[
         "change. In the USA and Canada, Bluelink turns a seat that is left out off."
     ),
 ]
+Day = Literal["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+TimeArg = Annotated[
+    str | None,
+    Field(
+        description="24-hour local time, HH:MM. Leave out to keep it as is.",
+        pattern=r"^([01]\d|2[0-3]):[0-5]\d$",
+    ),
+]
+KeepBool = Annotated[bool | None, Field(description="Leave out to keep it as is.")]
 USA_MIN_F, USA_MAX_F = 62, 82
 # Bluelink Canada's oldest cars (before model year 2020) start at 16 °C.
 CANADA_OLD_MODEL_YEAR, CANADA_OLD_MIN_C = 2020, 16
@@ -421,6 +430,112 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         return await command(
             vehicle, "set_charge_limits", lambda m, v: m.set_charge_limits(v.id, ac_percent, dc_percent), wait
         )
+
+    @mcp.tool(title="Set the charging schedule", annotations=WRITE)
+    @logged()
+    async def set_charging_schedule(
+        scheduled_charging: Annotated[
+            bool | None,
+            Field(description="Turn scheduled charging on or off. Leave out to keep it as is."),
+        ] = None,
+        off_peak_start: TimeArg = None,
+        off_peak_end: TimeArg = None,
+        off_peak_only: Annotated[
+            bool | None,
+            Field(
+                description="Charge only in the off-peak window (true), or prefer it but charge "
+                "outside it when needed (false). Leave out to keep it as is."
+            ),
+        ] = None,
+        vehicle: VehicleArg = None,
+        wait: WaitArg = True,
+    ) -> dict[str, Any]:
+        """Change the car's scheduled (off-peak) charging: on or off, and the off-peak window.
+        Settings left out keep their current values, read from the car's last reported
+        state; the result shows the whole schedule that was sent. EVs and plug-in hybrids
+        in Europe, Australia, New Zealand, China and India."""
+        changes = {
+            "charging_enabled": scheduled_charging,
+            "off_peak_start_time": schedule.parse_time(off_peak_start),
+            "off_peak_end_time": schedule.parse_time(off_peak_end),
+            "off_peak_charge_only_enabled": off_peak_only,
+        }
+        if all(value is None for value in changes.values()):
+            raise BluelinkError("Nothing to change: give at least one setting.")
+        sent: dict[str, Any] = {}
+
+        def build(v: Any, scopes: tuple[str, ...]) -> Any:
+            options = schedule.build(v, scopes, charging=changes)
+            sent["schedule"] = schedule.describe_charging(options)
+            return options
+
+        def send(m: Any, v: Any) -> str | None:
+            return schedule.send(m, v, schedule.CHARGE, partial(build, v))
+
+        result = await command(vehicle, "set_charging_schedule", send, wait)
+        return {**result, **clean(sent)}
+
+    @mcp.tool(title="Set a departure time", annotations=WRITE)
+    @logged()
+    async def set_departure_schedule(
+        slot: Annotated[
+            Literal[1, 2], Field(description="Which of the car's two departure times to change.")
+        ],
+        enabled: KeepBool = None,
+        days: Annotated[
+            list[Day] | None,
+            Field(min_length=1, description="The days it repeats on. Leave out to keep them as they are."),
+        ] = None,
+        time: TimeArg = None,
+        climate: Annotated[
+            bool | None,
+            Field(description="Pre-condition the cabin for this departure. Leave out to keep it as is."),
+        ] = None,
+        temperature: Annotated[
+            float | None,
+            Field(
+                ge=17,
+                le=27,
+                description="Cabin temperature for the departure, 17-27 °C in 0.5 steps. Always in °C; "
+                "converted for cars set to °F. Leave out to keep it as is.",
+            ),
+        ] = None,
+        defrost: Annotated[
+            bool | None, Field(description="Defrost the windscreen. Leave out to keep it as is.")
+        ] = None,
+        vehicle: VehicleArg = None,
+        wait: WaitArg = True,
+    ) -> dict[str, Any]:
+        """Change one of the car's two departure times: when it repeats, and whether to
+        pre-condition the cabin (and charge) to be ready by then. Settings left out keep
+        their current values, read from the car's last reported state; the result shows the
+        departure that was sent. On some cars the climate settings are shared by both
+        departures. EVs and plug-in hybrids in Europe, Australia, New Zealand, China and India."""
+        changes: dict[str, Any] = {
+            "enabled": enabled,
+            "days": schedule.day_numbers(days),
+            "time": schedule.parse_time(time),
+            "climate_enabled": climate,
+            "defrost": defrost,
+        }
+        if temperature is None and all(value is None for value in changes.values()):
+            raise BluelinkError("Nothing to change: give at least one setting.")
+        sent: dict[str, Any] = {}
+
+        def build(v: Any, scopes: tuple[str, ...]) -> Any:
+            fahrenheit = schedule.uses_fahrenheit(v)
+            if temperature is not None:
+                celsius = round(temperature * 2) / 2
+                changes["temperature"] = round(celsius * 9 / 5 + 32) if fahrenheit else celsius
+            options = schedule.build(v, scopes, slot=slot, departure=changes)
+            sent["departure"] = schedule.describe_departure(options, slot, fahrenheit)
+            return options
+
+        def send(m: Any, v: Any) -> str | None:
+            return schedule.send(m, v, schedule.CLIMATE, partial(build, v))
+
+        result = await command(vehicle, "set_departure_schedule", send, wait)
+        return {**result, **clean(sent)}
 
     @mcp.tool(title="Flash hazard lights", annotations=WRITE)
     @logged()

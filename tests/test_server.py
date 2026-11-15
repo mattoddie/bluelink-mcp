@@ -1242,3 +1242,191 @@ def test_library_not_implemented_is_explained_and_not_rate_limited(tmp_path):
     for _ in range(2):
         with pytest.raises(ToolError, match="isn't available for this car's region or brand"):
             call(server, "sound_horn_and_flash_lights")
+
+
+# --- schedules ---------------------------------------------------------------
+
+
+class ScheduleManager(FakeManager):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        car = self.vehicles["v1"]
+        car.ev_schedule_charge_enabled = False
+        car.ev_off_peak_start_time = dt.time(0, 30)
+        car.ev_off_peak_end_time = dt.time(7, 30)
+        car.ev_off_peak_charge_only_enabled = False
+        for label, hour in (("first", 8), ("second", 17)):
+            setattr(car, f"ev_{label}_departure_enabled", True)
+            setattr(car, f"ev_{label}_departure_days", [1, 2, 3, 4, 5])
+            setattr(car, f"ev_{label}_departure_time", dt.time(hour, 0))
+            setattr(car, f"ev_{label}_departure_climate_enabled", True)
+            setattr(car, f"ev_{label}_departure_climate_temperature", (21.0, "°C"))
+            setattr(car, f"ev_{label}_departure_climate_defrost", False)
+
+    def schedule_charging_and_climate(self, vid, options):
+        self.calls.append(("schedule", vid, options))
+        return "act-schedule"
+
+    def schedule_reservation_charge(self, vid, options):
+        self.calls.append(("reservation_charge", vid, options))
+        return "act-rc"
+
+    def schedule_reservation_hvac(self, vid, options):
+        self.calls.append(("reservation_hvac", vid, options))
+        return "act-rh"
+
+
+def sent_schedule(kind="schedule"):
+    [options] = [c[2] for c in FakeManager.instances[-1].calls if c[0] == kind]
+    return options
+
+
+def test_schedule_tools_need_writes(tmp_path):
+    server, _ = make(tmp_path, factory=ScheduleManager)
+    assert not {"set_charging_schedule", "set_departure_schedule"} & tool_names(server)
+
+
+def test_charging_schedule_keeps_what_is_not_changed(tmp_path):
+    server, _ = make(tmp_path, factory=ScheduleManager, BLUELINK_ALLOW_WRITES="true")
+    data, _ = call(server, "set_charging_schedule", {"scheduled_charging": True, "off_peak_start": "23:15"})
+    assert data["action_id"] == "act-schedule" and data["status"] == "success"
+    assert data["schedule"] == {
+        "scheduled_charging": True,
+        "off_peak_start": "23:15",
+        "off_peak_end": "07:30",
+        "off_peak_only": False,
+    }
+    options = sent_schedule()
+    assert (options.charging_enabled, options.off_peak_start_time) == (True, dt.time(23, 15))
+    assert options.off_peak_end_time == dt.time(7, 30)
+    # Nothing is left for the library to fill with defaults.
+    assert options.first_departure.time == dt.time(8, 0)
+    assert options.second_departure.time == dt.time(17, 0)
+    assert options.first_departure.days == [1, 2, 3, 4, 5]
+    assert options.temperature == 21.0
+    # The car's state was read just before filling in the schedule.
+    calls = FakeManager.instances[-1].calls
+    assert calls.index(("cached", "v1")) < [c[0] for c in calls].index("schedule")
+
+
+def test_departure_schedule_changes_one_slot(tmp_path):
+    server, _ = make(tmp_path, factory=ScheduleManager, BLUELINK_ALLOW_WRITES="true")
+    data, _ = call(
+        server,
+        "set_departure_schedule",
+        {"slot": 2, "days": ["Sat", "Sun", "Sat"], "time": "09:45", "temperature": 22.3, "wait": False},
+    )
+    assert data["departure"] == {
+        "slot": 2,
+        "enabled": True,
+        "days": ["Sun", "Sat"],
+        "time": "09:45",
+        "climate": True,
+        "temperature": {"value": 22.5, "unit": "°C"},
+        "defrost": False,
+    }
+    options = sent_schedule()
+    assert options.second_departure.days == [0, 6]
+    assert options.second_departure.time == dt.time(9, 45)
+    assert options.first_departure.time == dt.time(8, 0)
+    assert options.first_departure.temperature == 21.0
+    # Where the climate setting is shared, it follows the departure that changed.
+    assert options.temperature == 22.5
+    assert options.charging_enabled is False and options.off_peak_start_time == dt.time(0, 30)
+
+
+def test_departure_temperature_is_converted_for_fahrenheit_cars(tmp_path):
+    class FahrenheitManager(ScheduleManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.vehicles["v1"].ev_first_departure_climate_temperature = (70, "°F")
+
+    server, _ = make(tmp_path, factory=FahrenheitManager, BLUELINK_ALLOW_WRITES="true")
+    data, _ = call(server, "set_departure_schedule", {"slot": 1, "temperature": 21})
+    assert data["departure"]["temperature"] == {"value": 70, "unit": "°F"}
+    assert sent_schedule().temperature_unit == 1
+
+
+def test_schedule_is_refused_when_the_car_does_not_report_it(tmp_path):
+    class UnknownManager(ScheduleManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.vehicles["v1"].ev_off_peak_end_time = None
+            self.vehicles["v1"].ev_second_departure_time = None
+
+    server, _ = make(tmp_path, factory=UnknownManager, BLUELINK_ALLOW_WRITES="true")
+    for _ in range(2):  # refused before sending, so not rate limited
+        with pytest.raises(ToolError, match="off_peak_end, departure 2 time"):
+            call(server, "set_charging_schedule", {"scheduled_charging": True})
+    assert not [c for c in FakeManager.instances[-1].calls if c[0] == "schedule"]
+    # Giving the missing value explicitly is enough for that one.
+    with pytest.raises(ToolError, match="departure 2 time"):
+        call(server, "set_charging_schedule", {"off_peak_end": "06:00"})
+
+
+def test_schedule_needs_a_change(tmp_path):
+    server, _ = make(tmp_path, factory=ScheduleManager, BLUELINK_ALLOW_WRITES="true")
+    with pytest.raises(ToolError, match="Nothing to change"):
+        call(server, "set_charging_schedule")
+    with pytest.raises(ToolError, match="Nothing to change"):
+        call(server, "set_departure_schedule", {"slot": 1})
+
+
+@pytest.mark.parametrize("bad", ["24:00", "7:30", "07:60", "noon"])
+def test_schedule_times_are_validated(tmp_path, bad):
+    server, _ = make(tmp_path, factory=ScheduleManager, BLUELINK_ALLOW_WRITES="true")
+    with pytest.raises(ToolError):
+        call(server, "set_charging_schedule", {"off_peak_start": bad})
+
+
+class KiaCciLikeApi(ApiImpl):
+    """Like the library's Kia europe-cci API: only some endpoints are enabled."""
+
+    GSPA_REMOTE_CONTROL_VERIFIED = False
+    GSPA_VERIFIED_ENDPOINTS = frozenset({"reservation-charge", "reservation-hvac"})
+
+    def schedule_charging_and_climate(self, *args): ...
+
+    def schedule_reservation_charge(self, *args): ...
+
+    def schedule_reservation_hvac(self, *args): ...
+
+
+class HyundaiCciLikeApi(KiaCciLikeApi):
+    GSPA_REMOTE_CONTROL_VERIFIED = True
+
+
+@pytest.mark.parametrize(
+    ("api", "tool", "args", "kind"),
+    [
+        (KiaCciLikeApi, "set_charging_schedule", {"scheduled_charging": True}, "reservation_charge"),
+        (KiaCciLikeApi, "set_departure_schedule", {"slot": 1, "enabled": False}, "reservation_hvac"),
+        (HyundaiCciLikeApi, "set_charging_schedule", {"scheduled_charging": True}, "schedule"),
+        (HyundaiCciLikeApi, "set_departure_schedule", {"slot": 1, "enabled": False}, "schedule"),
+    ],
+)
+def test_europe_cci_schedules_use_the_enabled_endpoint(tmp_path, api, tool, args, kind):
+    class CciManager(ScheduleManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.api = api()
+
+    server, _ = make(tmp_path, factory=CciManager, BLUELINK_ALLOW_WRITES="true")
+    call(server, tool, {**args, "wait": False})
+    assert [c[0] for c in FakeManager.instances[-1].calls if c[0] not in ("login", "cached")] == [kind]
+    options = sent_schedule(kind)
+    if kind == "reservation_charge":
+        assert options.charging_enabled is True and options.first_departure is None
+    if kind == "reservation_hvac":
+        assert options.first_departure.enabled is False and options.charging_enabled is None
+
+
+def test_schedules_are_refused_where_the_region_lacks_them(tmp_path):
+    class NoScheduleManager(ScheduleManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.api = NoExtrasApi()
+
+    server, _ = make(tmp_path, factory=NoScheduleManager, BLUELINK_ALLOW_WRITES="true")
+    with pytest.raises(ToolError, match="isn't available in this Bluelink region"):
+        call(server, "set_charging_schedule", {"scheduled_charging": True})

@@ -39,6 +39,7 @@ src/bluelink_mcp/
 ├── config.py     environment variables → a frozen Config
 ├── client.py     BluelinkClient: session, token cache, rate limits, commands
 ├── format.py     library objects → compact JSON for the model
+├── schedule.py   charging and departure schedules: filling in unchanged settings, picking the endpoint
 └── server.py     the MCP tools
 scripts/
 ├── gen_tool_docs.py   writes docs/tools.md from the tool definitions
