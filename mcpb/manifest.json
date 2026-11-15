@@ -87,6 +87,14 @@
       "description": "Set the maximum charge level. Mainly for EVs; many plug-in hybrids don't support it."
     },
     {
+      "name": "set_charging_schedule",
+      "description": "Change the car's scheduled (off-peak) charging: on or off, and the off-peak window. Settings left out keep their current values, read from the car's last reported state; the result shows the whole schedule that was sent. EVs and plug-in hybrids in Europe, Australia, New Zealand, China and India."
+    },
+    {
+      "name": "set_departure_schedule",
+      "description": "Change one of the car's two departure times: when it repeats, and whether to pre-condition the cabin (and charge) to be ready by then. Settings left out keep their current values, read from the car's last reported state; the result shows the departure that was sent. On some cars the climate settings are shared by both departures. EVs and plug-in hybrids in Europe, Australia, New Zealand, China and India."
+    },
+    {
       "name": "sound_horn_and_flash_lights",
       "description": "Sound the horn and flash the hazard lights for a short while, e.g. to find the car. It is loud and can disturb people nearby, so only do this when the user asks for the horn; to just find the car, prefer flash_hazard_lights. Not available in Canada or for Kia in the USA."
     },

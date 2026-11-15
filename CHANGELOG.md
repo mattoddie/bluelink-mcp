@@ -8,6 +8,7 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ### Added
 
+- `set_charging_schedule` and `set_departure_schedule` change scheduled off-peak charging and the two departure times (needs `BLUELINK_ALLOW_WRITES`). Settings you leave out keep their current values.
 - `sound_horn_and_flash_lights` sounds the horn and flashes the hazard lights (needs `BLUELINK_ALLOW_WRITES`).
 
 ### Changed
