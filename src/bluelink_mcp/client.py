@@ -7,6 +7,7 @@ password logins can get a Bluelink account temporarily blocked.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import logging
 import os
@@ -37,11 +38,17 @@ from hyundai_kia_connect_api.exceptions import (
 from hyundai_kia_connect_api.Token import Token
 from mcp.server.mcpserver.exceptions import ToolError
 
+from .audit import redact_vehicle
 from .config import BRANDS, REGIONS, Config, ConfigError
 
 _LOGGER = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# How often to check the session with Bluelink. Checking can be a real request (Canada
+# and the europe-cci API call Bluelink to test the token), so it isn't done on every
+# call: only this often, when the token is about to expire, or after a failed call.
+TOKEN_CHECK_SECONDS = 300
 
 # Fields a usable token cache must have, all strings.
 _TOKEN_FIELDS = ("username", "access_token", "valid_until")
@@ -115,6 +122,7 @@ class BluelinkClient:
         self._manager: Any = None
         self._saved_token: dict | None = None
         self._login_failed_at: float | None = None
+        self._token_checked_at: float | None = None
         self._cache_updated: dict[str, float] = {}
         self._last_force_refresh: dict[str, float] = {}
         # When each command was last sent to each car: (vehicle ID, command) -> time.
@@ -201,6 +209,19 @@ class BluelinkClient:
         except OSError as ex:
             _LOGGER.warning("Could not remove token cache %s: %s", path, ex)
 
+    def _token_check_due(self) -> bool:
+        """Whether the session should be checked (and refreshed) before the next request."""
+        if self._token_checked_at is None:
+            return True
+        if time.monotonic() - self._token_checked_at >= TOKEN_CHECK_SECONDS:
+            return True
+        valid_until = getattr(getattr(self._manager, "token", None), "valid_until", None)
+        if not isinstance(valid_until, dt.datetime):
+            return True
+        if valid_until.tzinfo is None:
+            valid_until = valid_until.replace(tzinfo=dt.UTC)
+        return valid_until - dt.datetime.now(dt.UTC) <= dt.timedelta(seconds=TOKEN_CHECK_SECONDS)
+
     def _session(self) -> Any:
         """Return a logged-in manager, logging in or refreshing the token as needed."""
         c = self._config
@@ -225,7 +246,13 @@ class BluelinkClient:
                     token=self._load_token(),
                     language=c.language,
                 )
-            self._manager.check_and_refresh_token()
+                # A new manager starts without the cars' state, so nothing cached before
+                # it was created counts as fresh any more.
+                self._cache_updated.clear()
+                self._token_checked_at = None
+            if self._token_check_due():
+                self._manager.check_and_refresh_token()
+                self._token_checked_at = time.monotonic()
         except AuthenticationOTPRequired:
             # The library logs in with the password whenever it has no token, and an OTP
             # request leaves it without one. Without the backoff, every tool call would
@@ -264,14 +291,17 @@ class BluelinkClient:
             except BluelinkError:
                 raise
             except Exception as ex:
+                # The session may be what failed: check it before the next request.
+                self._token_checked_at = None
                 raise BluelinkError(f"Bluelink request failed: {explain(ex)}") from ex
             finally:
                 self._save_token()
 
     # --- vehicles ------------------------------------------------------------
 
-    def vehicles(self) -> list[Vehicle]:
-        return self.call(lambda m: list(m.vehicles.values()))
+    def vehicles(self, view: Callable[[Vehicle], T]) -> list[T]:
+        """Each vehicle turned into `view(vehicle)`, under the lock."""
+        return self.call(lambda m: [view(v) for v in m.vehicles.values()])
 
     def resolve(self, manager: Any, vehicle: str | None, exact: bool = False) -> Vehicle:
         """Find a vehicle by ID, VIN or name. With one vehicle, the argument is optional.
@@ -298,27 +328,34 @@ class BluelinkClient:
         if len(matches) == 1:
             return matches[0]
         if len(matches) > 1:
-            raise BluelinkError(f"Several vehicles match {vehicle!r}; give the ID or VIN from list_vehicles.")
+            raise BluelinkError(
+                f"Several vehicles match {redact_vehicle(vehicle)!r}; give the ID or VIN from list_vehicles."
+            )
         hint = " Give the exact name, VIN or ID." if exact else ""
-        raise BluelinkError(f"No vehicle matches {vehicle!r}. Use list_vehicles to see them.{hint}")
+        raise BluelinkError(
+            f"No vehicle matches {redact_vehicle(vehicle)!r}. Use list_vehicles to see them.{hint}"
+        )
 
-    def status(self, vehicle: str | None) -> Vehicle:
-        """Return the vehicle with the state Bluelink last received from the car."""
+    def status(self, vehicle: str | None, view: Callable[[Vehicle], T]) -> T:
+        """The state Bluelink last received from the car, turned into `view(vehicle)`.
 
-        def run(m: Any) -> Vehicle:
+        The view runs under the lock, so it never sees a half-updated vehicle.
+        """
+
+        def run(m: Any) -> T:
             v = self.resolve(m, vehicle)
             age = time.monotonic() - self._cache_updated.get(v.id, float("-inf"))
             if age > self._config.cache_max_age_seconds:
                 m.update_vehicle_with_cached_state(v.id)
                 self._cache_updated[v.id] = time.monotonic()
-            return v
+            return view(v)
 
         return self.call(run)
 
-    def force_refresh(self, vehicle: str | None) -> Vehicle:
+    def force_refresh(self, vehicle: str | None, view: Callable[[Vehicle], T]) -> T:
         """Wake the car and ask it for fresh state. Rate limited to protect its 12V battery."""
 
-        def run(m: Any) -> Vehicle:
+        def run(m: Any) -> T:
             v = self.resolve(m, vehicle)
             min_gap = self._config.min_refresh_minutes * 60
             since = time.monotonic() - self._last_force_refresh.get(v.id, float("-inf"))
@@ -334,18 +371,26 @@ class BluelinkClient:
             m.force_refresh_vehicle_state(v.id)
             m.update_vehicle_with_cached_state(v.id)
             self._cache_updated[v.id] = time.monotonic()
-            return v
+            return view(v)
 
         return self.call(run)
 
-    def trip_info(self, vehicle: str | None, period: str) -> Any:
-        def run(m: Any) -> Any:
+    def trip_info(
+        self, vehicle: str | None, period: dt.date | str | None, view: Callable[[str, Any], T]
+    ) -> T:
+        """Trips for a day (a date), or a month's summary (YYYY-MM), as `view(date, info)`.
+
+        Without a period it's today in the car's time zone, as the library knows it.
+        """
+
+        def run(m: Any) -> T:
             v = self.resolve(m, vehicle)
-            if len(period) == 6:
-                m.update_month_trip_info(v.id, period)
-                return v.month_trip_info
-            m.update_day_trip_info(v.id, period)
-            return v.day_trip_info
+            day = period if period is not None else dt.datetime.now(v.timezone or dt.UTC).date()
+            if isinstance(day, str):
+                m.update_month_trip_info(v.id, day.replace("-", ""))
+                return view(day, v.month_trip_info)
+            m.update_day_trip_info(v.id, day.strftime("%Y%m%d"))
+            return view(day.isoformat(), v.day_trip_info)
 
         return self.call(run)
 

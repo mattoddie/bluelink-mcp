@@ -63,7 +63,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hyundai-kia-connect-api", specifier = ">=4.36.0" },
+    { name = "hyundai-kia-connect-api", specifier = ">=5.1.2,<6" },
     { name = "mcp", extras = ["cli"], specifier = ">=2.3.0" },
 ]
 

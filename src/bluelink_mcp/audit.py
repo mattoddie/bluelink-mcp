@@ -7,6 +7,7 @@ import functools
 import inspect
 import json
 import logging
+import re
 import sys
 import threading
 from collections.abc import Awaitable, Callable
@@ -24,6 +25,9 @@ SECRET_ARGUMENTS = {"confirm", "pin", "password", "token"}
 RESULT_FIELDS = ("vehicle", "action_id", "status")
 VIN_LENGTH = 17
 VIN_SUFFIX = 6
+# Something that looks like a VIN inside a message: 17 letters and digits on their own,
+# with at least one digit (VINs end in a serial number), so long words are left alone.
+_VIN_IN_TEXT = re.compile(rf"(?<![A-Za-z0-9])(?=[A-Za-z]*[0-9])[A-Za-z0-9]{{{VIN_LENGTH}}}(?![A-Za-z0-9])")
 
 
 def redact_vehicle(value: Any) -> Any:
@@ -31,6 +35,11 @@ def redact_vehicle(value: Any) -> Any:
     if isinstance(value, str) and len(value.strip()) == VIN_LENGTH and value.strip().isalnum():
         return "…" + value.strip()[-VIN_SUFFIX:]
     return value
+
+
+def redact_text(text: str) -> str:
+    """A message with every VIN-like word shortened to its last 6 characters."""
+    return _VIN_IN_TEXT.sub(lambda m: "…" + m.group(0)[-VIN_SUFFIX:], text)
 
 
 def redact(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -76,7 +85,7 @@ class AuditLog:
             entry["outcome"] = "ok"
         else:
             entry["outcome"] = "error"
-            entry["error"] = str(error) or type(error).__name__
+            entry["error"] = redact_text(str(error)) or type(error).__name__
         self._write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
 
     def _write(self, line: str) -> None:

@@ -6,6 +6,23 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the HTTP transport now always checks the `Host` and `Origin` headers. Without `MCP_ALLOWED_HOSTS`, a server listening on loopback accepts only `localhost`, `127.0.0.1` and `[::1]`; on any other address (such as `0.0.0.0` in the Docker image) it accepts any `Host` but refuses every browser request (any `Origin` header, including empty and `null` ones) and logs a warning. Set `MCP_ALLOWED_HOSTS` to the names clients use.
+- **Breaking:** `get_command_status` accepts only `action_id` values of up to 128 letters, digits and `_ . : + / = -`.
+- `get_vehicle_status` gives units for the outside, cabin, battery and departure temperatures (°F in the USA), the service distances and the charging times. The charging times are now `time_to_full`, `time_to_full_fast`, `time_to_full_portable` and `time_to_full_station`, replacing the `minutes_to_full*` fields.
+- `get_trips` without a date uses today in the car's time zone instead of the server's.
+- The HTTP server accepts at most 32 connections at a time and closes idle keep-alive connections after 5 seconds. `MCP_ALLOWED_ORIGINS` entries may give the default port (`https://claude.ai:443`), and bare IPv6 addresses in `MCP_ALLOWED_HOSTS` match bracketed `Host` headers.
+- Requires hyundai-kia-connect-api 5.1.2 or later (below 6).
+- The seat arguments of `start_climate` now say that in the USA and Canada a seat left out is turned off.
+
+### Fixed
+
+- After a failed login or network error, `get_vehicle_status` could return a status with most fields missing until the cache expired, because the new session's empty state counted as fresh.
+- The server no longer checks the Bluelink session before every request. In Canada and `europe-cci` that check is a real request, so waiting for a command made one every 5 seconds. It now checks every 5 minutes, when the token is about to expire, or after a failed request.
+- Unlocks refused before the user was asked (rate limit, unknown or ambiguous car, login failure) are now in the audit log, and VINs in audit log errors and in tool errors are shortened to their last 6 characters.
+- Vehicle state is now formatted while the client lock is held, so a status can't mix data from before and after a concurrent update.
+
 ## [0.4.0] - 2026-11-13
 
 ### Added

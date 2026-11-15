@@ -60,7 +60,10 @@ WaitArg = Annotated[
 SeatLevel = Literal["off", "low_heat", "medium_heat", "high_heat", "low_cool", "medium_cool", "high_cool"]
 SeatArg = Annotated[
     SeatLevel | None,
-    Field(description="Seat heating or ventilation, on cars that have it. Leave out to keep it as is."),
+    Field(
+        description="Seat heating or ventilation, on cars that have it. Leave out to not ask for a "
+        "change. In the USA and Canada, Bluelink turns a seat that is left out off."
+    ),
 ]
 USA_MIN_F, USA_MAX_F = 62, 82
 # Bluelink Canada's oldest cars (before model year 2020) start at 16 °C.
@@ -175,34 +178,37 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         return await anyio.to_thread.run_sync(partial(fn, *args, **kwargs))
 
     # Every tool that acts on the car (waking it or sending a command) is wrapped in `logged`.
-    logged = partial(audited, AuditLog(config.audit_log) if config.audit_log else None)
+    audit_log = AuditLog(config.audit_log) if config.audit_log else None
+    logged = partial(audited, audit_log)
 
     # --- read ---------------------------------------------------------------
 
     @mcp.tool(title="List vehicles", annotations=READ)
     async def list_vehicles() -> list[dict[str, Any]]:
         """List the vehicles on the account."""
-        return [vehicle_summary(v) for v in await run(client.vehicles)]
+        return await run(client.vehicles, vehicle_summary)
 
     @mcp.tool(title="Get vehicle status", annotations=READ)
     async def get_vehicle_status(vehicle: VehicleArg = None) -> dict[str, Any]:
         """Get the car's last reported state: battery and fuel, range, charging, climate,
         locks, doors, windows, tyres, warnings and charging schedule. Does not wake the car."""
-        return vehicle_status(await run(client.status, vehicle))
+        return await run(client.status, vehicle, vehicle_status)
 
     @mcp.tool(title="Refresh vehicle status from the car", annotations=WAKE)
     @logged()
     async def refresh_vehicle_status(vehicle: VehicleArg = None) -> dict[str, Any]:
         """Wake the car and fetch live state, then return it like get_vehicle_status.
         Uses a little 12V battery and API quota, so it is rate limited."""
-        return vehicle_status(await run(client.force_refresh, vehicle))
+        return await run(client.force_refresh, vehicle, vehicle_status)
 
     if config.allow_location:
 
         @mcp.tool(title="Get vehicle location", annotations=READ)
         async def get_vehicle_location(vehicle: VehicleArg = None) -> dict[str, Any]:
             """Get where the car is parked (latitude/longitude, and an address if geocoding is on)."""
-            return vehicle_location(await run(client.status, vehicle), config.location_precision)
+            return await run(
+                client.status, vehicle, partial(vehicle_location, precision=config.location_precision)
+            )
 
     @mcp.tool(title="Get trips", annotations=READ)
     async def get_trips(
@@ -211,22 +217,26 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             str | None,
             Field(
                 description="YYYY-MM-DD for that day's trips, or YYYY-MM for a month summary. "
-                "Defaults to today."
+                "Defaults to today in the car's time zone."
             ),
         ] = None,
     ) -> dict[str, Any]:
         """Get driving history: trips for a day, or a month's summary with trip counts per day.
         Not every region supports this (Europe does)."""
-        raw = (date or dt.date.today().isoformat()).strip()
+        raw = (date or "").strip()
+        period: dt.date | str | None = None
         try:
             if len(raw) == 7:
-                period = dt.datetime.strptime(raw, "%Y-%m").strftime("%Y%m")
-            else:
-                period = dt.datetime.strptime(raw, "%Y-%m-%d").strftime("%Y%m%d")
+                period = dt.datetime.strptime(raw, "%Y-%m").strftime("%Y-%m")
+            elif raw:
+                period = dt.datetime.strptime(raw, "%Y-%m-%d").date()
         except ValueError:
             raise BluelinkError("date must be YYYY-MM-DD or YYYY-MM") from None
-        info = await run(client.trip_info, vehicle, period)
-        return clean({"date": raw, "trips": info}) if info else {"date": raw, "trips": None}
+
+        def view(day: str, info: Any) -> dict[str, Any]:
+            return clean({"date": day, "trips": info}) if info else {"date": day, "trips": None}
+
+        return await run(client.trip_info, vehicle, period, view)
 
     @mcp.tool(title="Get daily energy usage", annotations=READ)
     async def get_energy_usage(
@@ -235,11 +245,18 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
     ) -> list[dict[str, Any]]:
         """Get daily electric energy use (Wh) split into driving, climate, electronics and
         battery care, plus regenerated energy and distance. EVs and PHEVs in some regions."""
-        return daily_stats(await run(client.status, vehicle), days)
+        return await run(client.status, vehicle, partial(daily_stats, days=days))
 
     @mcp.tool(title="Get command status", annotations=READ)
     async def get_command_status(
-        action_id: Annotated[str, Field(description="The action_id a command returned.")],
+        action_id: Annotated[
+            str,
+            Field(
+                description="The action_id a command returned.",
+                max_length=128,
+                pattern=r"^[A-Za-z0-9_.:+/=-]+$",
+            ),
+        ],
         vehicle: VehicleArg = None,
     ) -> dict[str, str]:
         """Check whether an earlier remote command succeeded (pending, success, failed, timeout)."""
@@ -269,7 +286,13 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             if not can_elicit(ctx):
                 return None
             # Also checks the rate limit, so the user isn't asked for an unlock that can't be sent.
-            car = await run(client.command_target, vehicle, "unlock_vehicle", exact=True)
+            try:
+                car = await run(client.command_target, vehicle, "unlock_vehicle", exact=True)
+            except BaseException as ex:
+                # The tool itself never runs, so its audit wrapper can't record the refusal.
+                if audit_log is not None:
+                    audit_log.record("unlock_vehicle", {"vehicle": vehicle}, error=ex)
+                raise
             vin = str(car.VIN or "")
             vin_hint = f" (VIN ending {vin[-VIN_SUFFIX:]})" if len(vin) >= VIN_SUFFIX else ""
             return Elicit(

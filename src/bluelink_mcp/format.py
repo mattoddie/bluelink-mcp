@@ -34,9 +34,15 @@ def clean(value: Any) -> Any:
     return value
 
 
+# Units the library abbreviates in ways the model could misread ("m" is minutes, not metres).
+_UNIT_NAMES = {"m": "min"}
+
+
 def _measure(value: Any, unit: Any) -> Any:
     if value is None:
         return None
+    if isinstance(unit, str):
+        unit = _UNIT_NAMES.get(unit, unit)
     return {"value": value, "unit": unit} if unit else value
 
 
@@ -65,6 +71,10 @@ def vehicle_summary(v: Vehicle) -> dict[str, Any]:
 def vehicle_status(v: Vehicle) -> dict[str, Any]:
     g = lambda name: _get(v, name)  # noqa: E731
 
+    def m(name: str) -> Any:
+        """A value with its unit. Some units have no public property, so read the field."""
+        return _measure(g(name), g(f"{name}_unit") or g(f"_{name}_unit"))
+
     seats = {
         "front_left": v.front_left_seat_status,
         "front_right": v.front_right_seat_status,
@@ -84,7 +94,7 @@ def vehicle_status(v: Vehicle) -> dict[str, Any]:
                 "days": [DAYS[d] if isinstance(d, int) and 0 <= d < 7 else d for d in days],
                 "time": getattr(v, f"ev_{label}_departure_time"),
                 "climate": getattr(v, f"ev_{label}_departure_climate_enabled"),
-                "climate_temperature": g(f"ev_{label}_departure_climate_temperature"),
+                "climate_temperature": m(f"ev_{label}_departure_climate_temperature"),
                 "defrost": getattr(v, f"ev_{label}_departure_climate_defrost"),
             }
         )
@@ -98,7 +108,7 @@ def vehicle_status(v: Vehicle) -> dict[str, Any]:
                 "engine_running": v.engine_is_running,
                 "odometer": _measure(g("odometer"), g("odometer_unit")),
                 "total_range": _measure(g("total_driving_range"), g("total_driving_range_unit")),
-                "outside_temperature": g("outside_temperature"),
+                "outside_temperature": m("outside_temperature"),
                 "drive_mode": v.drive_mode,
                 "valet_mode_active": v.valet_mode_active,
             },
@@ -106,8 +116,8 @@ def vehicle_status(v: Vehicle) -> dict[str, Any]:
                 "ev_battery_percent": v.ev_battery_percentage,
                 "ev_range": _measure(g("ev_driving_range"), g("ev_driving_range_unit")),
                 "ev_battery_health_percent": v.ev_battery_soh_percentage,
-                "ev_battery_temperature_min": g("ev_battery_temperature_min"),
-                "ev_battery_temperature_max": g("ev_battery_temperature_max"),
+                "ev_battery_temperature_min": m("ev_battery_temperature_min"),
+                "ev_battery_temperature_max": m("ev_battery_temperature_max"),
                 "ev_battery_winter_mode": v.ev_battery_winter_mode,
                 "battery_heating": v.ev_battery_heating_state,
                 "aux_12v_battery_percent": v.car_battery_percentage,
@@ -124,10 +134,10 @@ def vehicle_status(v: Vehicle) -> dict[str, Any]:
                 "charging": v.ev_battery_is_charging,
                 "charging_power_kw": v.ev_charging_power,
                 "charge_port_open": v.ev_charge_port_door_is_open,
-                "minutes_to_full": g("ev_estimated_current_charge_duration"),
-                "minutes_to_full_fast": g("ev_estimated_fast_charge_duration"),
-                "minutes_to_full_portable": g("ev_estimated_portable_charge_duration"),
-                "minutes_to_full_station": g("ev_estimated_station_charge_duration"),
+                "time_to_full": m("ev_estimated_current_charge_duration"),
+                "time_to_full_fast": m("ev_estimated_fast_charge_duration"),
+                "time_to_full_portable": m("ev_estimated_portable_charge_duration"),
+                "time_to_full_station": m("ev_estimated_station_charge_duration"),
                 "charge_limit_ac_percent": v.ev_charge_limits_ac,
                 "charge_limit_dc_percent": v.ev_charge_limits_dc,
                 "charging_current_level": v.ev_charging_current,
@@ -141,7 +151,7 @@ def vehicle_status(v: Vehicle) -> dict[str, Any]:
             },
             "climate": {
                 "on": v.air_control_is_on,
-                "set_temperature": g("air_temperature"),
+                "set_temperature": m("air_temperature"),
                 "defrost": v.defrost_is_on,
                 "steering_wheel_heater": v.steering_wheel_heater_is_on,
                 "rear_window_heater": v.back_window_heater_is_on,
@@ -184,8 +194,8 @@ def vehicle_status(v: Vehicle) -> dict[str, Any]:
                 "dtc_descriptions": v.dtc_descriptions,
             },
             "service": {
-                "next_service_in": g("next_service_distance"),
-                "last_service_at": g("last_service_distance"),
+                "next_service_in": m("next_service_distance"),
+                "last_service_at": m("last_service_distance"),
             },
         }
     )
