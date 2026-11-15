@@ -111,12 +111,20 @@
       "description": "Sound the horn and flash the hazard lights for a short while, e.g. to find the car. It is loud and can disturb people nearby, so only do this when the user asks for the horn; to just find the car, prefer flash_hazard_lights. Not available in Canada or for Kia in the USA."
     },
     {
+      "name": "start_battery_conditioning",
+      "description": "Start warming (or cooling) the high-voltage battery, so it charges faster and the car has more range when it's cold. Uses energy from the battery, or from the charger when plugged in. EVs in europe-cci only."
+    },
+    {
       "name": "start_charging",
       "description": "Start charging now (the car must be plugged in). Overrides a charging schedule."
     },
     {
       "name": "start_climate",
       "description": "Start pre-conditioning the cabin (heating or cooling). Seat settings only apply to cars that support them. On a plug-in hybrid this runs from the high-voltage battery."
+    },
+    {
+      "name": "stop_battery_conditioning",
+      "description": "Stop conditioning the high-voltage battery. EVs in europe-cci only."
     },
     {
       "name": "stop_charging",
