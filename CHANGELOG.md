@@ -6,6 +6,10 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-15
+
+This release applies a code review and adds nine command tools, for 24 tools in all (7 read, 16 write and 1 unlock). **It has breaking changes**: check the **Breaking:** entries under Changed, especially the `Host`/`Origin` check on the HTTP transport.
+
 ### Added
 
 - `set_charging_schedule` and `set_departure_schedule` change scheduled off-peak charging and the two departure times (needs `BLUELINK_ALLOW_WRITES`). Settings you leave out keep their current values.
@@ -156,7 +160,8 @@ This release follows a security review. **It has breaking changes**; check the f
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.2.0...v0.3.0
