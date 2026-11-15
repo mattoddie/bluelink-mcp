@@ -41,7 +41,11 @@ GROUPS: list[tuple[str, str, list[str]]] = [
         "Starting and stopping charging, and charge limits.",
         ["start_charging", "stop_charging", "set_charge_limits"],
     ),
-    ("security", "Locks and hazard lights.", ["lock_vehicle", "unlock_vehicle", "flash_hazard_lights"]),
+    (
+        "security",
+        "Locks, hazard lights and horn.",
+        ["lock_vehicle", "unlock_vehicle", "flash_hazard_lights", "sound_horn_and_flash_lights"],
+    ),
 ]
 
 LABELS = {"read": "🟢 read", "write": "🟠 write", "unlock": "🔴 unlock"}

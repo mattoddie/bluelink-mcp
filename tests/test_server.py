@@ -8,6 +8,7 @@ import threading
 import anyio
 import pytest
 from hyundai_kia_connect_api import Vehicle
+from hyundai_kia_connect_api.ApiImpl import ApiImpl
 from hyundai_kia_connect_api.const import ORDER_STATUS
 from hyundai_kia_connect_api.exceptions import APIError, AuthenticationError, AuthenticationOTPRequired
 from hyundai_kia_connect_api.Token import Token
@@ -1171,3 +1172,73 @@ def test_trips_for_a_day_and_a_month(tmp_path):
     assert ("day_trips", "v1", "20261015") in calls and ("month_trips", "v1", "202610") in calls
     with pytest.raises(ToolError, match="YYYY-MM-DD"):
         call(server, "get_trips", {"date": "15/10/2026"})
+
+
+# --- horn and lights ---------------------------------------------------------
+
+
+class HornManager(FakeManager):
+    def start_hazard_lights(self, vid):
+        self.calls.append(("lights", vid))
+        return "act-lights"
+
+    def start_hazard_lights_and_horn(self, vid):
+        self.calls.append(("horn", vid))
+        return "act-horn"
+
+
+def test_horn_and_lights_are_write_tools(tmp_path):
+    server, _ = make(tmp_path, factory=HornManager)
+    assert not {"flash_hazard_lights", "sound_horn_and_flash_lights"} & tool_names(server)
+    server, _ = make(tmp_path, factory=HornManager, BLUELINK_ALLOW_WRITES="true")
+    tools = {t.name: t for t in anyio.run(server.list_tools)}
+    assert tools["sound_horn_and_flash_lights"].annotations.read_only_hint is False
+    assert tools["sound_horn_and_flash_lights"].annotations.destructive_hint is False
+
+
+def test_sound_horn_is_sent_and_rate_limited(tmp_path):
+    log = tmp_path / "audit.jsonl"
+    server, _ = make(tmp_path, factory=HornManager, BLUELINK_ALLOW_WRITES="true", BLUELINK_AUDIT_LOG=str(log))
+    data, _ = call(server, "sound_horn_and_flash_lights")
+    assert data == {"vehicle": "Santa Fe", "action_id": "act-horn", "status": "success"}
+    with pytest.raises(ToolError, match="sound_horn_and_flash_lights was sent"):
+        call(server, "sound_horn_and_flash_lights")
+    # Its own rate limit: the lights can still be flashed.
+    call(server, "flash_hazard_lights", {"wait": False})
+    calls = FakeManager.instances[-1].calls
+    assert calls.count(("horn", "v1")) == 1 and calls.count(("lights", "v1")) == 1
+    assert [e["tool"] for e in audit_lines(log)] == [
+        "sound_horn_and_flash_lights",
+        "sound_horn_and_flash_lights",
+        "flash_hazard_lights",
+    ]
+
+
+class NoExtrasApi(ApiImpl):
+    """A region API that implements none of the optional commands."""
+
+
+class NoExtrasManager(HornManager):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.api = NoExtrasApi()
+
+
+@pytest.mark.parametrize("tool", ["flash_hazard_lights", "sound_horn_and_flash_lights"])
+def test_horn_and_lights_are_refused_where_the_region_lacks_them(tmp_path, tool):
+    server, _ = make(tmp_path, factory=NoExtrasManager, BLUELINK_ALLOW_WRITES="true")
+    for _ in range(2):  # refused before sending, so not rate limited either
+        with pytest.raises(ToolError, match="isn't available in this Bluelink region"):
+            call(server, tool)
+    assert not {c[0] for c in FakeManager.instances[-1].calls} & {"horn", "lights"}
+
+
+def test_library_not_implemented_is_explained_and_not_rate_limited(tmp_path):
+    class GatedManager(HornManager):
+        def start_hazard_lights_and_horn(self, vid):
+            raise NotImplementedError("awaits live verification")
+
+    server, _ = make(tmp_path, factory=GatedManager, BLUELINK_ALLOW_WRITES="true")
+    for _ in range(2):
+        with pytest.raises(ToolError, match="isn't available for this car's region or brand"):
+            call(server, "sound_horn_and_flash_lights")

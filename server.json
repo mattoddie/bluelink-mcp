@@ -75,7 +75,7 @@
         },
         {
           "name": "BLUELINK_ALLOW_WRITES",
-          "description": "Allow commands to the car: lock, climate, charging, charge limits and hazard lights.",
+          "description": "Allow commands to the car, such as locking, climate, charging, the horn and lights. Unlock has its own setting.",
           "format": "boolean",
           "default": "false"
         },

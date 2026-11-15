@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from hyundai_kia_connect_api import Vehicle, VehicleManager
+from hyundai_kia_connect_api.ApiImpl import ApiImpl
 from hyundai_kia_connect_api.const import ORDER_STATUS
 from hyundai_kia_connect_api.exceptions import (
     APIError,
@@ -69,6 +70,8 @@ _EXPLANATIONS: list[tuple[type[BaseException], str]] = [
     (RateLimitingError, "Bluelink's API limit has been reached. Try again later (the limit resets daily)."),
     (DuplicateRequestError, "Bluelink is still handling an earlier command. Wait a minute and try again."),
     (UnsupportedControlError, "This car does not support that command."),
+    # The library's way of saying a region or brand doesn't have a command (yet).
+    (NotImplementedError, "This command isn't available for this car's region or brand yet."),
     (
         RequestTimeoutError,
         "The car did not answer Bluelink in time, perhaps for lack of mobile signal. Try later.",
@@ -94,6 +97,22 @@ def explain(ex: BaseException) -> str:
         "Unexpected error; run the server with LOG_LEVEL=debug for details.",
     )
     return f"{message} ({type(ex).__name__})"
+
+
+def region_supports(manager: Any, method: str) -> bool:
+    """Whether the region's API implements `method`, rather than inheriting the base
+    class's NotImplementedError. A manager without an `api` (a test fake) supports all."""
+    api = getattr(manager, "api", None)
+    if api is None:
+        return True
+    impl = getattr(type(api), method, None)
+    return impl is not None and impl is not getattr(ApiImpl, method, None)
+
+
+def require(manager: Any, method: str, what: str) -> None:
+    """Refuse, before anything is sent, a command the region's API doesn't have."""
+    if not region_supports(manager, method):
+        raise BluelinkError(f"{what} isn't available in this Bluelink region.")
 
 
 def check_supported(config: Config) -> None:
@@ -442,8 +461,8 @@ class BluelinkClient:
             self._last_command[key] = time.monotonic()
             try:
                 action_id = action(m, v)
-            except BluelinkError:
-                # Our own checks refused it before anything was sent.
+            except (BluelinkError, NotImplementedError):
+                # Our own checks, or the library's, refused it before anything was sent.
                 if previous is None:
                     self._last_command.pop(key, None)
                 else:
