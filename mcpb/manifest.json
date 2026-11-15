@@ -51,6 +51,10 @@
       "description": "Close the charging port door. EVs and plug-in hybrids with a motorised port door, in Europe, Australia, New Zealand, China and India."
     },
     {
+      "name": "close_windows",
+      "description": "Close all four side windows, e.g. when the user left one open and rain is coming. There is deliberately no tool to open them. Not every car has remote window control; not available in the USA or Canada."
+    },
+    {
       "name": "flash_hazard_lights",
       "description": "Flash the hazard lights briefly, e.g. to find the car in a car park. Not available in Canada or for Kia in the USA."
     },

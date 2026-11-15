@@ -33,6 +33,7 @@ bluelink-mcp can find, lock, unlock and pre-condition a real car. This page expl
 11. **Unlock asks you, on the server side.** Clients that support MCP elicitation show you a question from the server, and nothing is unlocked unless you say yes. With other clients, the assistant has to call again with the car's name or VIN ending in `confirm`, after checking with you. That second step can't stop a model that ignores its instructions, so keep your client's approval prompt on as well. See [Unlocking](usage.md#unlocking).
 12. **Audit log.** With `BLUELINK_AUDIT_LOG` set, every command and live refresh, including failed and refused ones (an unlock refused before the user is even asked, too), is appended to a JSON Lines file (mode `0600`) with its arguments and outcome. The unlock confirmation is redacted, VINs are shortened (in error messages too), and nothing from the car's status or location is written. See [Audit log](configuration.md#audit-log).
 13. **Rate-limited commands.** The same command can't be sent to the same car again within `BLUELINK_MIN_COMMAND_SECONDS` (60), so a looping assistant can't flood the car or the account's daily API quota.
+14. **Windows only close.** There's a tool to close the windows but deliberately none to open them, since an open window is as good as an unlocked door.
 
 ## Prompt injection
 

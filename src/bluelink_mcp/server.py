@@ -8,7 +8,8 @@ from functools import partial
 from typing import Annotated, Any, Literal
 
 import anyio.to_thread
-from hyundai_kia_connect_api.ApiImpl import ClimateRequestOptions
+from hyundai_kia_connect_api.ApiImpl import ClimateRequestOptions, WindowRequestOptions
+from hyundai_kia_connect_api.const import WINDOW_STATE
 from mcp.server.mcpserver import (
     AcceptedElicitation,
     Context,
@@ -607,6 +608,23 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
 
         result = await command(vehicle, "set_departure_schedule", send, wait)
         return {**result, **clean(sent)}
+
+    @mcp.tool(title="Close the windows", annotations=WRITE)
+    @logged()
+    async def close_windows(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+        """Close all four side windows, e.g. when the user left one open and rain is coming.
+        There is deliberately no tool to open them. Not every car has remote window control;
+        not available in the USA or Canada."""
+
+        def close(m: Any, v: Any) -> str | None:
+            require(m, "set_windows_state", "Closing the windows")
+            closed = WINDOW_STATE.CLOSED
+            options = WindowRequestOptions(
+                front_left=closed, front_right=closed, back_left=closed, back_right=closed
+            )
+            return m.set_windows_state(v.id, options)
+
+        return await command(vehicle, "close_windows", close, wait)
 
     @mcp.tool(title="Flash hazard lights", annotations=WRITE)
     @logged()
