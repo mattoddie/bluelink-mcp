@@ -60,5 +60,6 @@ Plug-in hybrids, such as the Santa Fe, Tucson and Kia Sorento/Sportage PHEVs, re
 
 - **Charging schedules and departure times** are shown in the status but can't be changed yet.
 - **Windows, charge port, valet mode and navigation** aren't exposed, although the library supports some of them on some cars.
+- **Hazard-light status in the USA** (Hyundai and Genesis): the library remembers what kind of command an action was only until its first status check, so later checks of a `flash_hazard_lights` command, whether while waiting or with `get_command_status`, may report the wrong status. The lights still flash. This is a library issue.
 - **One-time passcodes**: if the service asks for an OTP at login (some US Kia accounts), the server can't complete it. Log in through the app once, then try again.
 - The Bluelink, Kia Connect and Genesis Connect APIs are unofficial and undocumented. Hyundai and Kia can change them at any time, and fixes usually arrive in the library first. Keep the image up to date.

@@ -121,7 +121,7 @@ The server always uses the password and PIN you configured, so after changing yo
 | `MCP_HTTP_HOST` | `127.0.0.1`; `0.0.0.0` in the Docker image | Address to listen on |
 | `MCP_HTTP_PORT` | `8080` | Port to listen on |
 | `MCP_AUTH_TOKEN` | | Bearer token clients must send. **Required** for `http`, and at least 16 characters; the server refuses to start otherwise. Generate one with `openssl rand -hex 32`. Or use `MCP_AUTH_TOKEN_FILE`. |
-| `MCP_ALLOWED_HOSTS` | | Optional comma-separated allow-list of `Host` header values, for DNS rebinding protection, such as `bluelink.example.com,192.168.1.20:8080`. An entry without a port matches any port. |
+| `MCP_ALLOWED_HOSTS` | `localhost`, `127.0.0.1` and `[::1]` when listening on loopback | Comma-separated allow-list of `Host` header values, for DNS rebinding protection, such as `bluelink.example.com,192.168.1.20:8080`. An entry without a port matches any port. Set it whenever the server listens on another address, as in the Docker image. |
 | `MCP_ALLOWED_ORIGINS` | | Optional comma-separated list of extra `Origin` values browsers may call from, such as `https://claude.ai`. Needs `MCP_ALLOWED_HOSTS`. |
 
 The HTTP server serves the MCP endpoint at `/mcp` (`POST` only, with a JSON body of up to 4 MiB) and an unauthenticated health check at `/health`. `bluelink-mcp healthcheck` exits 0 when `/health` answers, for Docker's `HEALTHCHECK`. `bluelink-mcp version` prints the version.
@@ -130,7 +130,9 @@ An empty variable counts as not set. So does a variable whose whole value is a p
 
 `BLUELINK_PASSWORD`, `BLUELINK_PIN` and `MCP_AUTH_TOKEN` can each be read from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): set `BLUELINK_PASSWORD_FILE`, `BLUELINK_PIN_FILE` or `MCP_AUTH_TOKEN_FILE` to its path. Set the variable or its `_FILE` version, not both.
 
-With `MCP_ALLOWED_HOSTS` set, requests whose `Host` header isn't on the list are rejected with `421`. Requests that carry an `Origin` header (browser-based clients do; command-line and desktop clients usually don't) are rejected with `403` unless the origin is on an allowed host or listed in `MCP_ALLOWED_ORIGINS`. For origins, a host entry without a port allows only the default port (`https://bluelink.example.com`); list `host:port` for others. An empty or `null` origin is always rejected. A port wildcard such as `localhost:*` or `http://localhost:*` is allowed in both lists.
+Requests whose `Host` header isn't on the allowed list are rejected with `421`. Without `MCP_ALLOWED_HOSTS`, the list is `localhost`, `127.0.0.1` and `[::1]` (any port) when `MCP_HTTP_HOST` is a loopback address. On any other address, such as `0.0.0.0` in the Docker image, there's no list to check against: any `Host` is accepted (the bearer token still guards every request), browser requests are refused, and the server logs a warning at startup. Requests that carry an `Origin` header (browser-based clients do; command-line and desktop clients usually don't) are rejected with `403` unless the origin is on an allowed host or listed in `MCP_ALLOWED_ORIGINS`. For origins, a host entry without a port allows only the default port (`https://bluelink.example.com`); list `host:port` for others. Entries in `MCP_ALLOWED_ORIGINS` may give the default port or leave it out (`https://claude.ai:443` and `https://claude.ai` are the same). An empty or `null` origin is always rejected. A port wildcard such as `localhost:*` or `http://localhost:*` is allowed in both lists.
+
+The server accepts at most 32 connections at a time (more get `503`) and closes idle keep-alive connections after 5 seconds.
 
 ## Example configs
 

@@ -14,7 +14,18 @@ from hyundai_kia_connect_api.Token import Token
 from mcp.server.mcpserver.exceptions import ToolError
 
 from bluelink_mcp import __version__
-from bluelink_mcp.__main__ import MAX_BODY_BYTES, healthcheck_url, http_app, main, transport_security
+from bluelink_mcp import client as client_module
+from bluelink_mcp import server as server_module
+from bluelink_mcp.__main__ import (
+    MAX_BODY_BYTES,
+    _split_host,
+    allowed_hosts,
+    healthcheck_url,
+    http_app,
+    main,
+    transport_security,
+)
+from bluelink_mcp.audit import redact_text
 from bluelink_mcp.client import BluelinkClient, check_supported
 from bluelink_mcp.config import Config, ConfigError, log_level
 from bluelink_mcp.server import build_server
@@ -684,14 +695,84 @@ def test_origin_allow_list(origin, allowed):
     assert status == (200 if allowed else 403)
 
 
-def test_without_allowed_hosts_the_sdk_default_applies():
-    assert transport_security(Config.from_env(ENV)) is None
-    # With hosts set, our own check replaces the SDK's.
+def test_our_host_check_always_replaces_the_sdks():
+    assert not transport_security(Config.from_env(ENV)).enable_dns_rebinding_protection
     assert not transport_security(http_config(MCP_ALLOWED_HOSTS="h")).enable_dns_rebinding_protection
-    status, _, _ = request(guarded(), headers={**AUTH, "host": "anything", "origin": "https://evil.example"})
-    assert status == 200
     with pytest.raises(ConfigError, match="MCP_ALLOWED_ORIGINS needs MCP_ALLOWED_HOSTS"):
         Config.from_env({**ENV, "MCP_ALLOWED_ORIGINS": "https://claude.ai"})
+
+
+@pytest.mark.parametrize(
+    ("host", "allowed"),
+    [
+        ("127.0.0.1:8080", True),
+        ("localhost:8080", True),
+        ("[::1]:8080", True),
+        ("evil.example", False),
+        ("evil.example:8080", False),
+        (None, False),
+    ],
+)
+def test_loopback_binds_allow_only_loopback_hosts_by_default(host, allowed):
+    status, _, _ = request(guarded(), headers={**AUTH, "host": host})
+    assert status == (200 if allowed else 421)
+
+
+@pytest.mark.parametrize("origin", ["https://evil.example", "null", "", "http://127.0.0.1:9999"])
+def test_origins_are_checked_without_allowed_hosts_too(origin):
+    status, _, _ = request(guarded(), headers={**AUTH, "origin": origin})
+    assert status == 403
+
+
+def test_other_binds_without_allowed_hosts_accept_any_host_but_no_browsers():
+    config = http_config(MCP_HTTP_HOST="0.0.0.0")
+    assert allowed_hosts(config) is None
+    app = http_app(config, inner_app)
+    assert request(app, headers={**AUTH, "host": "bluelink.lan:8080"})[0] == 200
+    for origin in ("http://bluelink.lan:8080", "", "null"):
+        assert request(app, headers={**AUTH, "host": "bluelink.lan:8080", "origin": origin})[0] == 403
+    # The token is still needed.
+    assert request(app, headers={"host": "bluelink.lan:8080"})[0] == 401
+
+
+@pytest.mark.parametrize("bind", ["127.0.0.1", "127.0.0.2", "localhost", "::1", "[::1]"])
+def test_loopback_binds_are_recognised(bind):
+    assert allowed_hosts(http_config(MCP_HTTP_HOST=bind)) == ("localhost", "127.0.0.1", "[::1]")
+
+
+@pytest.mark.parametrize(
+    "entry", ["https://claude.ai", "https://claude.ai:443", "https://claude.ai/", "HTTPS://Claude.ai:443/"]
+)
+def test_allowed_origins_may_give_the_default_port(entry):
+    app = guarded(MCP_ALLOWED_HOSTS="bluelink.example.com", MCP_ALLOWED_ORIGINS=entry)
+    headers = {**AUTH, "host": "bluelink.example.com"}
+    assert request(app, headers={**headers, "origin": "https://claude.ai"})[0] == 200
+    assert request(app, headers={**headers, "origin": "https://claude.ai:443"})[0] == 200
+    assert request(app, headers={**headers, "origin": "https://claude.ai:8443"})[0] == 403
+    assert request(app, headers={**headers, "origin": "http://claude.ai"})[0] == 403
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("example.com", ("example.com", None)),
+        ("Example.com:8080", ("example.com", "8080")),
+        ("[::1]", ("[::1]", None)),
+        ("[::1]:8080", ("[::1]", "8080")),
+        ("[::1]:*", ("[::1]", "*")),
+        ("::1", ("[::1]", None)),
+        ("fe80::1", ("[fe80::1]", None)),
+        ("[::1]junk", ("[::1]junk", None)),
+    ],
+)
+def test_split_host_handles_ipv6(raw, expected):
+    assert _split_host(raw) == expected
+
+
+def test_bare_ipv6_allowed_host_matches_bracketed_host_header():
+    app = guarded(MCP_ALLOWED_HOSTS="::1")
+    assert request(app, headers={**AUTH, "host": "[::1]:8080"})[0] == 200
+    assert request(app, headers={**AUTH, "host": "[::1]junk"})[0] == 421
 
 
 def test_auth_token_minimum_length():
@@ -894,3 +975,199 @@ def test_audit_log_keeps_tool_schemas(tmp_path):
     )
     schemas = lambda s: {t.name: t.input_schema for t in anyio.run(s.list_tools)}  # noqa: E731
     assert schemas(plain) == schemas(logged)
+
+
+# --- review fixes ------------------------------------------------------------
+
+
+class ReconnectingManager(FakeManager):
+    """A fresh manager knows the car but not its state until the cache is read."""
+
+    fail_next = False
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.vehicles["v1"].is_locked = None
+        self.vehicles["v1"].ev_battery_percentage = None
+
+    def check_and_refresh_token(self):
+        self.calls.append(("check",))
+        if ReconnectingManager.fail_next:
+            ReconnectingManager.fail_next = False
+            raise ConnectionError("blip")
+        return super().check_and_refresh_token()
+
+    def update_vehicle_with_cached_state(self, vid):
+        super().update_vehicle_with_cached_state(vid)
+        self.vehicles[vid].is_locked = True
+        self.vehicles[vid].ev_battery_percentage = 80
+
+
+def test_status_after_a_reconnect_reads_the_cache_again(tmp_path, monkeypatch):
+    server, _ = make(tmp_path, factory=ReconnectingManager)
+    first, _ = call(server, "get_vehicle_status")
+    assert first["battery"]["ev_battery_percent"] == 80
+    # Force the next call to check the session, and make that check fail.
+    monkeypatch.setattr(client_module, "TOKEN_CHECK_SECONDS", 0)
+    ReconnectingManager.fail_next = True
+    with pytest.raises(ToolError):
+        call(server, "get_vehicle_status")
+    again, _ = call(server, "get_vehicle_status")
+    assert len(FakeManager.instances) == 2
+    assert again["summary"]["locked"] is True
+    assert again["battery"]["ev_battery_percent"] == 80
+
+
+def test_session_is_not_checked_on_every_call(tmp_path, monkeypatch):
+    server, _ = make(tmp_path, factory=ReconnectingManager, BLUELINK_ALLOW_WRITES="true")
+
+    statuses = iter([ORDER_STATUS.PENDING, ORDER_STATUS.PENDING, ORDER_STATUS.SUCCESS])
+    monkeypatch.setattr(ReconnectingManager, "check_action_status", lambda *a, **k: next(statuses))
+    call(server, "get_vehicle_status")
+    call(server, "list_vehicles")
+    data, _ = call(server, "lock_vehicle")
+    assert data["status"] == "success"
+    manager = FakeManager.instances[-1]
+    assert manager.calls.count(("check",)) == 1
+
+    # A failed request means the session gets checked before the next one.
+    monkeypatch.setattr(ReconnectingManager, "force_refresh_vehicle_state", lambda *a: 1 / 0)
+    with pytest.raises(ToolError):
+        call(server, "refresh_vehicle_status")
+    call(server, "list_vehicles")
+    assert manager.calls.count(("check",)) == 2
+
+    # And again once the check interval has passed.
+    monkeypatch.setattr(client_module, "TOKEN_CHECK_SECONDS", 0)
+    call(server, "list_vehicles")
+    assert manager.calls.count(("check",)) == 3
+
+
+def test_session_is_checked_when_the_token_is_about_to_expire(tmp_path):
+    class ExpiringManager(ReconnectingManager):
+        def check_and_refresh_token(self):
+            super().check_and_refresh_token()
+            self.token.valid_until = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=30)
+
+    server, _ = make(tmp_path, factory=ExpiringManager)
+    call(server, "list_vehicles")
+    call(server, "list_vehicles")
+    assert FakeManager.instances[-1].calls.count(("check",)) == 2
+
+
+def test_status_values_have_units(tmp_path):
+    class USManager(FakeManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            car = self.vehicles["v1"]
+            car.outside_temperature = (68, "°F")
+            car.air_temperature = (72, "°F")
+            car.ev_battery_temperature_min = (59, "°F")
+            car.ev_battery_temperature_max = (64, "°F")
+            car.ev_estimated_current_charge_duration = (95, "m")
+            car.next_service_distance = (4200, "mi")
+            car.last_service_distance = (11000, "mi")
+            car.ev_first_departure_enabled = True
+            car.ev_first_departure_climate_temperature = (70, "°F")
+
+    server, _ = make(tmp_path, factory=USManager)
+    data, _ = call(server, "get_vehicle_status")
+    assert data["summary"]["outside_temperature"] == {"value": 68.0, "unit": "°F"}
+    assert data["climate"]["set_temperature"] == {"value": 72.0, "unit": "°F"}
+    assert data["battery"]["ev_battery_temperature_min"] == {"value": 59, "unit": "°F"}
+    assert data["battery"]["ev_battery_temperature_max"] == {"value": 64, "unit": "°F"}
+    assert data["charging"]["time_to_full"] == {"value": 95, "unit": "min"}
+    assert data["service"] == {
+        "next_service_in": {"value": 4200, "unit": "mi"},
+        "last_service_at": {"value": 11000, "unit": "mi"},
+    }
+    assert data["schedule"]["departures"][0]["climate_temperature"]["unit"] == "°F"
+
+
+def test_redact_text_shortens_vins_only():
+    text = "No vehicle matches 'KMHXYZ12345678901'. Use list_vehicles (ServiceTemporaryUnavailable)."
+    assert (
+        redact_text(text) == "No vehicle matches '…678901'. Use list_vehicles (ServiceTemporaryUnavailable)."
+    )
+    assert redact_text("abcdefghijklmnopq") == "abcdefghijklmnopq"
+
+
+def test_vehicle_errors_do_not_repeat_a_full_vin(tmp_path):
+    server, _ = make(tmp_path)
+    with pytest.raises(ToolError) as info:
+        call(server, "get_vehicle_status", {"vehicle": "KMHXYZ12345678901"})
+    assert "KMHXYZ12345678901" not in str(info.value)
+    assert "…678901" in str(info.value)
+
+
+def test_audit_log_records_unlocks_refused_before_asking(tmp_path, monkeypatch):
+    monkeypatch.setattr(server_module, "can_elicit", lambda ctx: True)
+    log = tmp_path / "audit.jsonl"
+    server, _ = make(
+        tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true", BLUELINK_AUDIT_LOG=str(log)
+    )
+    with pytest.raises(ToolError):
+        call(server, "unlock_vehicle", {"vehicle": "KMHXYZ12345678901"})
+    [entry] = audit_lines(log)
+    assert entry["tool"] == "unlock_vehicle"
+    assert entry["outcome"] == "error"
+    assert entry["arguments"] == {"vehicle": "…678901"}
+    assert "No vehicle matches" in entry["error"]
+    assert "KMHXYZ12345678901" not in log.read_text()
+    assert FakeManager.instances[-1].calls.count(("unlock", "v1")) == 0
+
+
+def test_status_is_formatted_under_the_lock(tmp_path):
+    config = Config.from_env({**ENV, "BLUELINK_TOKEN_FILE": str(tmp_path / "token.json")})
+    client = BluelinkClient(config, manager_factory=FakeManager)
+    assert client.status(None, lambda v: client._lock._is_owned())
+    assert client.force_refresh(None, lambda v: client._lock._is_owned())
+    assert all(client.vehicles(lambda v: client._lock._is_owned()))
+
+
+@pytest.mark.parametrize("action_id", ["x" * 129, "act 1", "act;rm", ""])
+def test_action_id_is_validated(tmp_path, action_id):
+    server, _ = make(tmp_path)
+    with pytest.raises(ToolError):
+        call(server, "get_command_status", {"action_id": action_id})
+
+
+def test_action_id_accepts_real_looking_ids(tmp_path):
+    server, _ = make(tmp_path)
+    data, _ = call(server, "get_command_status", {"action_id": "3f2b1c9e-7a4d-4e0f-9b8a-1c2d3e4f5a6b"})
+    assert data["status"] == "success"
+
+
+class TripManager(FakeManager):
+    def update_day_trip_info(self, vid, day):
+        self.calls.append(("day_trips", vid, day))
+        self.vehicles[vid].day_trip_info = {"day": day}
+
+    def update_month_trip_info(self, vid, month):
+        self.calls.append(("month_trips", vid, month))
+        self.vehicles[vid].month_trip_info = {"month": month}
+
+
+def test_trips_default_to_today_in_the_cars_time_zone(tmp_path):
+    zone = dt.timezone(dt.timedelta(hours=14))
+
+    class FarEastManager(TripManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.vehicles["v1"].timezone = zone
+
+    server, _ = make(tmp_path, factory=FarEastManager)
+    data, _ = call(server, "get_trips")
+    today = dt.datetime.now(zone).date()
+    assert data["date"] == today.isoformat()
+    assert ("day_trips", "v1", today.strftime("%Y%m%d")) in FakeManager.instances[-1].calls
+
+
+def test_trips_for_a_day_and_a_month(tmp_path):
+    server, _ = make(tmp_path, factory=TripManager)
+    assert call(server, "get_trips", {"date": "2026-10-15"})[0]["date"] == "2026-10-15"
+    assert call(server, "get_trips", {"date": "2026-10"})[0]["date"] == "2026-10"
+    calls = FakeManager.instances[-1].calls
+    assert ("day_trips", "v1", "20261015") in calls and ("month_trips", "v1", "202610") in calls
+    with pytest.raises(ToolError, match="YYYY-MM-DD"):
+        call(server, "get_trips", {"date": "15/10/2026"})

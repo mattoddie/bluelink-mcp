@@ -101,7 +101,7 @@ Get driving history: trips for a day, or a month's summary with trip counts per 
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `date` | string |  |  | YYYY-MM-DD for that day's trips, or YYYY-MM for a month summary. Defaults to today. |
+| `date` | string |  |  | YYYY-MM-DD for that day's trips, or YYYY-MM for a month summary. Defaults to today in the car's time zone. |
 
 ### get_energy_usage
 
@@ -137,10 +137,10 @@ Start pre-conditioning the cabin (heating or cooling). Seat settings only apply 
 | `defrost` | boolean |  | `false` | Front windscreen defrost. |
 | `heated_rear_window_and_mirrors` | boolean |  | `false` | Heat the rear window and door mirrors. |
 | `heated_steering_wheel` | boolean |  | `false` | Heat the steering wheel. |
-| `front_left_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to keep it as is. |
-| `front_right_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to keep it as is. |
-| `rear_left_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to keep it as is. |
-| `rear_right_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to keep it as is. |
+| `front_left_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to not ask for a change. In the USA and Canada, Bluelink turns a seat that is left out off. |
+| `front_right_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to not ask for a change. In the USA and Canada, Bluelink turns a seat that is left out off. |
+| `rear_left_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to not ask for a change. In the USA and Canada, Bluelink turns a seat that is left out off. |
+| `rear_right_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to not ask for a change. In the USA and Canada, Bluelink turns a seat that is left out off. |
 | `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
 
 ### stop_climate

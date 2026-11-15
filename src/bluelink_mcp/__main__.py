@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import ipaddress
 import json
 import logging
 import os
@@ -24,6 +25,13 @@ from .server import build_server
 
 # The largest request body accepted on /mcp.
 MAX_BODY_BYTES = 4 * 1024 * 1024
+# Uvicorn limits: concurrent connections (beyond which it answers 503), and how long an
+# idle keep-alive connection stays open. Commands can take a minute, so there is no
+# per-request timeout.
+MAX_CONNECTIONS = 32
+KEEP_ALIVE_SECONDS = 5
+# The Host names accepted by default when listening on a loopback address.
+LOOPBACK_HOSTS = ("localhost", "127.0.0.1", "[::1]")
 
 _BEARER = re.compile(r"^Bearer\s+(.+)$", re.IGNORECASE)
 _PORT = re.compile(r":(\d+|\*)$")
@@ -67,10 +75,26 @@ class BearerAuth:
 
 
 def _split_host(host: str) -> tuple[str, str | None]:
-    """Split `host[:port]` (IPv6 in brackets) into the lower-case host name and the port."""
+    """Split `host[:port]` into the lower-case host name and the port.
+
+    IPv6 addresses come in brackets (`[::1]:8080`); a bare IPv6 address (`::1`) has no
+    port and is put in brackets, so both spellings match.
+    """
     host = host.strip().lower()
+    if host.startswith("["):
+        end = host.find("]")
+        if end == -1:
+            return host, None
+        rest = host[end + 1 :]
+        if not rest:
+            return host, None
+        match = _PORT.fullmatch(rest)
+        # Anything else after the bracket isn't a port: keep it, so it matches nothing.
+        return (host[: end + 1], match.group(1)) if match else (host, None)
+    if host.count(":") > 1:
+        return f"[{host}]", None
     match = _PORT.search(host)
-    if match and (not host.startswith("[") or host[: match.start()].endswith("]")):
+    if match:
         return host[: match.start()], match.group(1)
     return host, None
 
@@ -112,18 +136,38 @@ def origin_allowed(origin: str, allowed_hosts: tuple[str, ...], allowed_origins:
             entry_port == "*" or entry_port == effective or (entry_port is None and effective == str(default))
         ):
             return True
-    normal = f"{url.scheme}://{hostname}" + ("" if effective == str(default) else f":{effective}")
+    base = f"{url.scheme}://{hostname}"
     for entry in allowed_origins:
         entry = entry.strip().lower().rstrip("/")
-        if entry == normal or (entry.endswith(":*") and entry[:-2] == f"{url.scheme}://{hostname}"):
+        if entry.endswith(":*"):
+            if entry[:-2] == base:
+                return True
+            continue
+        # Compare the entry the same way, so `https://claude.ai:443` matches `https://claude.ai`.
+        try:
+            parsed = urlsplit(entry)
+            entry_port = parsed.port
+        except ValueError:
+            continue
+        if parsed.scheme != url.scheme or not parsed.hostname:
+            continue
+        entry_host = parsed.hostname.lower()
+        if ":" in entry_host:
+            entry_host = f"[{entry_host}]"
+        entry_default = 443 if parsed.scheme == "https" else 80
+        if entry_host == hostname and str(entry_port or entry_default) == effective:
             return True
     return False
 
 
 class HostOriginCheck:
-    """DNS rebinding protection: check Host and Origin against MCP_ALLOWED_HOSTS/ORIGINS."""
+    """DNS rebinding protection: check Host and Origin against MCP_ALLOWED_HOSTS/ORIGINS.
 
-    def __init__(self, app: ASGIApp, allowed_hosts: tuple[str, ...], allowed_origins: tuple[str, ...]):
+    With `allowed_hosts` None (a non-loopback address without MCP_ALLOWED_HOSTS), any Host
+    is accepted, but browser requests (any Origin header, even an empty one) are refused.
+    """
+
+    def __init__(self, app: ASGIApp, allowed_hosts: tuple[str, ...] | None, allowed_origins: tuple[str, ...]):
         self.app = app
         self.allowed_hosts = allowed_hosts
         self.allowed_origins = allowed_origins
@@ -131,12 +175,14 @@ class HostOriginCheck:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if not _open_path(scope):
             host = _header(scope, b"host")
-            if not host_allowed(host, self.allowed_hosts):
+            if self.allowed_hosts is not None and not host_allowed(host, self.allowed_hosts):
                 await _rpc_error(scope, receive, send, 421, f"Host {host!r} is not allowed")
                 return
             # Browsers send Origin on cross-site requests; other clients usually don't.
             origin = _header(scope, b"origin")
-            if origin is not None and not origin_allowed(origin, self.allowed_hosts, self.allowed_origins):
+            if origin is not None and not origin_allowed(
+                origin, self.allowed_hosts or (), self.allowed_origins
+            ):
                 await _rpc_error(scope, receive, send, 403, f"Origin {origin!r} is not allowed")
                 return
         await self.app(scope, receive, send)
@@ -189,23 +235,36 @@ class PostJSONOnly:
         await self.app(scope, replay, send)
 
 
-def transport_security(config: Config) -> TransportSecuritySettings | None:
-    """The SDK's own Host/Origin check, which HostOriginCheck replaces when MCP_ALLOWED_HOSTS is set.
+def is_loopback(host: str) -> bool:
+    """Whether the server listens only on a loopback address."""
+    host = host.strip().strip("[]").lower()
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
-    Without MCP_ALLOWED_HOSTS, None keeps the SDK's default: when listening on localhost, it
-    accepts only localhost Host headers.
-    """
-    if not config.allowed_hosts:
-        return None
+
+def allowed_hosts(config: Config) -> tuple[str, ...] | None:
+    """The Host names to accept: MCP_ALLOWED_HOSTS, else loopback names when listening on
+    loopback, else None (any Host; the bearer token still guards every request)."""
+    if config.allowed_hosts:
+        return config.allowed_hosts
+    if is_loopback(config.http_host):
+        return LOOPBACK_HOSTS
+    return None
+
+
+def transport_security(config: Config) -> TransportSecuritySettings:
+    """Turn off the SDK's own Host/Origin check: HostOriginCheck always replaces it."""
     return TransportSecuritySettings(enable_dns_rebinding_protection=False)
 
 
 def http_app(config: Config, app: ASGIApp) -> ASGIApp:
     """Wrap the MCP app in the checks, outermost first: Host/Origin, bearer token, method and body."""
     app = BearerAuth(PostJSONOnly(app), config.auth_token)
-    if config.allowed_hosts:
-        app = HostOriginCheck(app, config.allowed_hosts, config.allowed_origins)
-    return app
+    return HostOriginCheck(app, allowed_hosts(config), config.allowed_origins)
 
 
 def healthcheck_url(env: dict[str, str]) -> str | None:
@@ -275,6 +334,12 @@ def main() -> None:
 
     if not config.auth_token:
         sys.exit("bluelink-mcp: set MCP_AUTH_TOKEN (or MCP_AUTH_TOKEN_FILE) when using the http transport")
+    if allowed_hosts(config) is None:
+        logging.getLogger("bluelink_mcp").warning(
+            "Listening on %s without MCP_ALLOWED_HOSTS: any Host header is accepted and browser "
+            "requests are refused. Set MCP_ALLOWED_HOSTS to the names clients use.",
+            config.http_host,
+        )
 
     @mcp.custom_route("/health", methods=["GET"])
     async def health(_: Request) -> PlainTextResponse:
@@ -286,7 +351,14 @@ def main() -> None:
 
     import uvicorn
 
-    uvicorn.run(http_app(config, app), host=config.http_host, port=config.http_port)
+    uvicorn.run(
+        http_app(config, app),
+        host=config.http_host,
+        port=config.http_port,
+        limit_concurrency=MAX_CONNECTIONS,
+        timeout_keep_alive=KEEP_ALIVE_SECONDS,
+        timeout_graceful_shutdown=KEEP_ALIVE_SECONDS,
+    )
 
 
 if __name__ == "__main__":
