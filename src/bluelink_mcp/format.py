@@ -14,6 +14,8 @@ from typing import Any
 from hyundai_kia_connect_api import Vehicle
 
 DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+# The library's AC charging current levels, as a share of the full current.
+CHARGING_CURRENT_PERCENT = {1: 100, 2: 90, 3: 60}
 
 
 def clean(value: Any) -> Any:
@@ -140,7 +142,7 @@ def vehicle_status(v: Vehicle) -> dict[str, Any]:
                 "time_to_full_station": m("ev_estimated_station_charge_duration"),
                 "charge_limit_ac_percent": v.ev_charge_limits_ac,
                 "charge_limit_dc_percent": v.ev_charge_limits_dc,
-                "charging_current_level": v.ev_charging_current,
+                "charging_current_percent": CHARGING_CURRENT_PERCENT.get(v.ev_charging_current),
             },
             "schedule": {
                 "scheduled_charging_enabled": v.ev_schedule_charge_enabled,

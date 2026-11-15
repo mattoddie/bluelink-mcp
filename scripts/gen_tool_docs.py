@@ -38,11 +38,15 @@ GROUPS: list[tuple[str, str, list[str]]] = [
     ),
     (
         "charging",
-        "Starting and stopping charging, charge limits, and the charging and departure schedules.",
+        "Starting and stopping charging, charge limits and current, the charge port, and the charging "
+        "and departure schedules.",
         [
             "start_charging",
             "stop_charging",
             "set_charge_limits",
+            "set_charging_current",
+            "open_charge_port",
+            "close_charge_port",
             "set_charging_schedule",
             "set_departure_schedule",
         ],

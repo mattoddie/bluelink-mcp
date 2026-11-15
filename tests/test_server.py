@@ -1430,3 +1430,76 @@ def test_schedules_are_refused_where_the_region_lacks_them(tmp_path):
     server, _ = make(tmp_path, factory=NoScheduleManager, BLUELINK_ALLOW_WRITES="true")
     with pytest.raises(ToolError, match="isn't available in this Bluelink region"):
         call(server, "set_charging_schedule", {"scheduled_charging": True})
+
+
+# --- charge port and charging current ----------------------------------------
+
+
+class PortManager(FakeManager):
+    def open_charge_port(self, vid):
+        self.calls.append(("port_open", vid))
+        return "act-po"
+
+    def close_charge_port(self, vid):
+        self.calls.append(("port_close", vid))
+        return "act-pc"
+
+    def set_charging_current(self, vid, level):
+        self.calls.append(("current", vid, level))
+        return "act-cur"
+
+
+def test_charge_port_and_current_need_writes(tmp_path):
+    server, _ = make(tmp_path, factory=PortManager)
+    assert not {"open_charge_port", "close_charge_port", "set_charging_current"} & tool_names(server)
+
+
+def test_charge_port_open_and_close(tmp_path):
+    server, _ = make(tmp_path, factory=PortManager, BLUELINK_ALLOW_WRITES="true")
+    assert call(server, "open_charge_port")[0]["action_id"] == "act-po"
+    assert call(server, "close_charge_port")[0]["action_id"] == "act-pc"
+    with pytest.raises(ToolError, match="open_charge_port was sent"):
+        call(server, "open_charge_port")
+    calls = FakeManager.instances[-1].calls
+    assert calls.count(("port_open", "v1")) == 1 and calls.count(("port_close", "v1")) == 1
+
+
+@pytest.mark.parametrize(("percent", "level"), [(100, 1), (90, 2), (60, 3)])
+def test_set_charging_current(tmp_path, percent, level):
+    server, _ = make(tmp_path, factory=PortManager, BLUELINK_ALLOW_WRITES="true")
+    call(server, "set_charging_current", {"percent": percent, "wait": False})
+    assert ("current", "v1", level) in FakeManager.instances[-1].calls
+
+
+@pytest.mark.parametrize("percent", [50, 0, 110, "100"])
+def test_set_charging_current_takes_only_the_library_levels(tmp_path, percent):
+    server, _ = make(tmp_path, factory=PortManager, BLUELINK_ALLOW_WRITES="true")
+    with pytest.raises(ToolError):
+        call(server, "set_charging_current", {"percent": percent})
+    assert not [c for m in FakeManager.instances for c in m.calls if c[0] == "current"]
+
+
+@pytest.mark.parametrize(
+    ("tool", "args"),
+    [("open_charge_port", {}), ("close_charge_port", {}), ("set_charging_current", {"percent": 60})],
+)
+def test_charge_port_and_current_are_refused_where_the_region_lacks_them(tmp_path, tool, args):
+    class NoPortManager(PortManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.api = NoExtrasApi()
+
+    server, _ = make(tmp_path, factory=NoPortManager, BLUELINK_ALLOW_WRITES="true")
+    with pytest.raises(ToolError, match="isn't available in this Bluelink region"):
+        call(server, tool, args)
+    assert [c[0] for c in FakeManager.instances[-1].calls] == ["login"]
+
+
+def test_status_shows_the_charging_current_as_a_percentage(tmp_path):
+    class CurrentManager(FakeManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.vehicles["v1"].ev_charging_current = 2
+
+    server, _ = make(tmp_path, factory=CurrentManager)
+    assert call(server, "get_vehicle_status")[0]["charging"]["charging_current_percent"] == 90
