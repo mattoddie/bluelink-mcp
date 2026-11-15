@@ -9,6 +9,7 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 ### Added
 
 - `set_charging_schedule` and `set_departure_schedule` change scheduled off-peak charging and the two departure times (needs `BLUELINK_ALLOW_WRITES`). Settings you leave out keep their current values.
+- `close_windows` closes all four windows (needs `BLUELINK_ALLOW_WRITES`). There is deliberately no tool to open them.
 - `start_battery_conditioning` and `stop_battery_conditioning` warm or cool the high-voltage battery, in `europe-cci` (needs `BLUELINK_ALLOW_WRITES`).
 - `open_charge_port`, `close_charge_port` and `set_charging_current` (100, 90 or 60% of the AC current) (need `BLUELINK_ALLOW_WRITES`). The status shows the current limit as `charging_current_percent`, replacing `charging_current_level`.
 - `sound_horn_and_flash_lights` sounds the horn and flashes the hazard lights (needs `BLUELINK_ALLOW_WRITES`).

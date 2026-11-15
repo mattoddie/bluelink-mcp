@@ -1562,3 +1562,48 @@ def test_battery_conditioning_is_only_in_europe_cci_in_the_library():
     assert supports(9, 2)  # europe-cci, Hyundai
     assert not supports(1, 2)  # europe, Hyundai
     assert not supports(2, 2)  # Canada
+
+
+# --- windows -----------------------------------------------------------------
+
+
+class WindowManager(FakeManager):
+    def set_windows_state(self, vid, options):
+        self.calls.append(("windows", vid, options))
+        return "act-win"
+
+
+def test_close_windows_needs_writes_and_there_is_no_open(tmp_path):
+    server, _ = make(tmp_path, factory=WindowManager)
+    assert "close_windows" not in tool_names(server)
+    server, _ = make(
+        tmp_path, factory=WindowManager, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true"
+    )
+    names = tool_names(server)
+    assert "close_windows" in names
+    assert not [n for n in names if "window" in n and n != "close_windows"]
+
+
+def test_close_windows_closes_all_four(tmp_path):
+    from hyundai_kia_connect_api.const import WINDOW_STATE
+
+    server, _ = make(tmp_path, factory=WindowManager, BLUELINK_ALLOW_WRITES="true")
+    data, _ = call(server, "close_windows")
+    assert data["action_id"] == "act-win"
+    [options] = [c[2] for c in FakeManager.instances[-1].calls if c[0] == "windows"]
+    sides = (options.front_left, options.front_right, options.back_left, options.back_right)
+    assert sides == (WINDOW_STATE.CLOSED,) * 4
+    assert options.rear_left_curtain is None and options.rear_right_curtain is None
+    with pytest.raises(ToolError, match="close_windows was sent"):
+        call(server, "close_windows")
+
+
+def test_close_windows_is_refused_where_the_region_lacks_it(tmp_path):
+    class NoWindowManager(WindowManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.api = NoExtrasApi()
+
+    server, _ = make(tmp_path, factory=NoWindowManager, BLUELINK_ALLOW_WRITES="true")
+    with pytest.raises(ToolError, match="isn't available in this Bluelink region"):
+        call(server, "close_windows")

@@ -55,8 +55,14 @@ GROUPS: list[tuple[str, str, list[str]]] = [
     ),
     (
         "security",
-        "Locks, hazard lights and horn.",
-        ["lock_vehicle", "unlock_vehicle", "flash_hazard_lights", "sound_horn_and_flash_lights"],
+        "Locks, windows, hazard lights and horn.",
+        [
+            "lock_vehicle",
+            "unlock_vehicle",
+            "close_windows",
+            "flash_hazard_lights",
+            "sound_horn_and_flash_lights",
+        ],
     ),
 ]
 

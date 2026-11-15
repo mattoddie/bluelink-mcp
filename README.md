@@ -44,6 +44,7 @@ It's built on [`hyundai_kia_connect_api`](https://github.com/Hyundai-Kia-Connect
 | `get_energy_usage` | Daily energy use for driving, climate, electronics and battery care | |
 | `get_command_status` | Result of an earlier command | |
 | `lock_vehicle` | Lock the doors | writes |
+| `close_windows` | Close all four windows (there is no tool to open them) | writes |
 | `start_climate` / `stop_climate` | Pre-condition the cabin: temperature, duration, defrost, heated rear window/mirrors and steering wheel, seats | writes |
 | `start_charging` / `stop_charging` | Start or stop charging | writes |
 | `set_charge_limits` | AC/DC charge limits (EVs; most plug-in hybrids don't support this) | writes |
