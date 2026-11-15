@@ -41,6 +41,8 @@ Status, location, live refresh and the basic commands (lock, climate, charging) 
 - **Trips** (`get_trips`) work in Europe and a few other regions.
 - **Daily energy use** (`get_energy_usage`) is reported by EVs and plug-in hybrids, mainly in Europe.
 - **Charge limits** are for EVs. Most plug-in hybrids don't support them.
+- **Hazard lights and horn** (`flash_hazard_lights`, `sound_horn_and_flash_lights`) aren't available in Canada or for Kia in the USA. The server refuses them there without contacting the car.
+- **`europe-cci`**: the library turns commands on brand by brand once they've been tested on a real car (all of them for Hyundai, some for Kia, none yet for Genesis). The others report that they aren't available yet.
 
 When a region or car doesn't support something, the tool returns the library's error, or an empty result, and the assistant tells you.
 

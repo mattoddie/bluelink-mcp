@@ -46,7 +46,7 @@ The region must match where your account was created, not where the car is now. 
 
 | Variable | Default | Description |
 |---|---|---|
-| `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools: lock, climate, charging, charge limits and hazard lights |
+| `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools: lock, climate, charging, horn and lights and the others in the [tool reference](tools.md) (all but unlock) |
 | `BLUELINK_ALLOW_LOCATION` | `false` | Register `get_vehicle_location`, which tells the assistant where the car is. Off by default, because the location reveals where you live, work and park. Other tools never return the location. |
 | `BLUELINK_LOCATION_PRECISION` | `4` | How many decimal places of latitude and longitude `get_vehicle_location` returns, from `0` to `15`. `4` is about 10 m, enough to find the car; `3` is about 100 m, `2` about 1 km. The street address from `BLUELINK_GEOCODE` isn't rounded. |
 | `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle`. Needs `BLUELINK_ALLOW_WRITES=true`; the server refuses to start otherwise. Each unlock also needs your confirmation; see [Unlocking](usage.md#unlocking). |
@@ -72,7 +72,7 @@ Sizes are of the `tools/list` result, measured with the server over stdio. Turn 
 |---|---|---|
 | `BLUELINK_AUDIT_LOG` | (off) | Record every call of a tool that acts on the car. A file path appends JSON Lines to that file, which is created with mode `0600` if it doesn't exist (`~` is expanded). `stderr` writes the lines to standard error, next to the server's other logs. |
 
-Each line is one call of a command tool (`lock_vehicle`, `unlock_vehicle`, `start_climate`, `stop_climate`, `start_charging`, `stop_charging`, `set_charge_limits`, `flash_hazard_lights`) or of `refresh_vehicle_status`, which wakes the car. Calls that failed or were refused, such as an unlock the user didn't confirm or a command sent again too soon, are logged too. Reads aren't logged.
+Each line is one call of a command tool (`lock_vehicle`, `unlock_vehicle`, `start_climate`, `stop_climate`, `start_charging`, `stop_charging`, `set_charge_limits`, `flash_hazard_lights`, `sound_horn_and_flash_lights` and the others marked write in the [tool reference](tools.md)) or of `refresh_vehicle_status`, which wakes the car. Calls that failed or were refused, such as an unlock the user didn't confirm or a command sent again too soon, are logged too. Reads aren't logged.
 
 ```json
 {"time":"2026-10-22T07:41:09.512Z","tool":"start_climate","arguments":{"vehicle":null,"temperature":21,"duration_minutes":10,"defrost":false,"heated_rear_window_and_mirrors":false,"heated_steering_wheel":false,"front_left_seat":null,"front_right_seat":null,"rear_left_seat":null,"rear_right_seat":null,"wait":true},"result":{"vehicle":"Santa Fe","action_id":"5c1f…","status":"success"},"outcome":"ok"}

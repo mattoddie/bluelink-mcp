@@ -48,7 +48,7 @@
   "tools": [
     {
       "name": "flash_hazard_lights",
-      "description": "Flash the hazard lights briefly, e.g. to find the car in a car park."
+      "description": "Flash the hazard lights briefly, e.g. to find the car in a car park. Not available in Canada or for Kia in the USA."
     },
     {
       "name": "get_command_status",
@@ -85,6 +85,10 @@
     {
       "name": "set_charge_limits",
       "description": "Set the maximum charge level. Mainly for EVs; many plug-in hybrids don't support it."
+    },
+    {
+      "name": "sound_horn_and_flash_lights",
+      "description": "Sound the horn and flash the hazard lights for a short while, e.g. to find the car. It is loud and can disturb people nearby, so only do this when the user asks for the horn; to just find the car, prefer flash_hazard_lights. Not available in Canada or for Kia in the USA."
     },
     {
       "name": "start_charging",
@@ -165,7 +169,7 @@
     "allow_writes": {
       "type": "boolean",
       "title": "Allow commands",
-      "description": "Let Claude send commands to the car: lock, climate, charging, charge limits and hazard lights. Off means read-only.",
+      "description": "Let Claude send commands to the car, such as locking, climate, charging, the horn and lights. Unlock has its own setting. Off means read-only.",
       "default": false
     },
     "allow_unlock": {

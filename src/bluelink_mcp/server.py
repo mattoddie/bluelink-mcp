@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from . import __version__
 from .audit import AuditLog, audited
-from .client import BluelinkClient, BluelinkError
+from .client import BluelinkClient, BluelinkError, require
 from .config import REGIONS, Config
 from .format import clean, daily_stats, vehicle_location, vehicle_status, vehicle_summary
 
@@ -425,7 +425,27 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
     @mcp.tool(title="Flash hazard lights", annotations=WRITE)
     @logged()
     async def flash_hazard_lights(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
-        """Flash the hazard lights briefly, e.g. to find the car in a car park."""
-        return await command(vehicle, "flash_hazard_lights", lambda m, v: m.start_hazard_lights(v.id), wait)
+        """Flash the hazard lights briefly, e.g. to find the car in a car park. Not available
+        in Canada or for Kia in the USA."""
+
+        def flash(m: Any, v: Any) -> str | None:
+            require(m, "start_hazard_lights", "Flashing the hazard lights")
+            return m.start_hazard_lights(v.id)
+
+        return await command(vehicle, "flash_hazard_lights", flash, wait)
+
+    @mcp.tool(title="Sound the horn and flash the lights", annotations=WRITE)
+    @logged()
+    async def sound_horn_and_flash_lights(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+        """Sound the horn and flash the hazard lights for a short while, e.g. to find the car.
+        It is loud and can disturb people nearby, so only do this when the user asks for the
+        horn; to just find the car, prefer flash_hazard_lights. Not available in Canada or
+        for Kia in the USA."""
+
+        def honk(m: Any, v: Any) -> str | None:
+            require(m, "start_hazard_lights_and_horn", "Sounding the horn")
+            return m.start_hazard_lights_and_horn(v.id)
+
+        return await command(vehicle, "sound_horn_and_flash_lights", honk, wait)
 
     return mcp

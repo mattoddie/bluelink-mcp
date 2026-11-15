@@ -6,6 +6,10 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+### Added
+
+- `sound_horn_and_flash_lights` sounds the horn and flashes the hazard lights (needs `BLUELINK_ALLOW_WRITES`).
+
 ### Changed
 
 - **Breaking:** the HTTP transport now always checks the `Host` and `Origin` headers. Without `MCP_ALLOWED_HOSTS`, a server listening on loopback accepts only `localhost`, `127.0.0.1` and `[::1]`; on any other address (such as `0.0.0.0` in the Docker image) it accepts any `Host` but refuses every browser request (any `Origin` header, including empty and `null` ones) and logs a warning. Set `MCP_ALLOWED_HOSTS` to the names clients use.
@@ -14,6 +18,7 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 - `get_trips` without a date uses today in the car's time zone instead of the server's.
 - The HTTP server accepts at most 32 connections at a time and closes idle keep-alive connections after 5 seconds. `MCP_ALLOWED_ORIGINS` entries may give the default port (`https://claude.ai:443`), and bare IPv6 addresses in `MCP_ALLOWED_HOSTS` match bracketed `Host` headers.
 - Requires hyundai-kia-connect-api 5.1.2 or later (below 6).
+- `flash_hazard_lights` (and the new horn tool) are refused without contacting the car in regions whose API lacks them (Canada, and Kia in the USA), and commands the library hasn't enabled for a region or brand report that clearly instead of an unexpected error, without counting against the command rate limit.
 - The seat arguments of `start_climate` now say that in the USA and Canada a seat left out is turned off.
 
 ### Fixed

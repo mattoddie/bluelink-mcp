@@ -71,7 +71,7 @@ The bundle uses Claude Desktop's uv runtime: on first start, Claude Desktop down
 | Email, Password | `BLUELINK_USERNAME`, `BLUELINK_PASSWORD` | Your app login. The password is marked sensitive, so Claude Desktop keeps it out of the plain settings. |
 | PIN | `BLUELINK_PIN` | Optional. Europe and Canada need it for commands. |
 | Region, Brand | `BLUELINK_REGION`, `BLUELINK_BRAND` | See [Choosing a region](configuration.md#choosing-a-region). Default `europe` and `hyundai`. |
-| Allow commands | `BLUELINK_ALLOW_WRITES` | Lock, climate, charging, charge limits and hazard lights. Off by default. |
+| Allow commands | `BLUELINK_ALLOW_WRITES` | Lock, climate, charging and the other commands, such as the horn and lights. Off by default. |
 | Allow unlocking | `BLUELINK_ALLOW_UNLOCK` | Needs *Allow commands*. Each unlock also needs your confirmation; see [Unlocking](usage.md#unlocking). |
 | Share location | `BLUELINK_ALLOW_LOCATION` | Registers `get_vehicle_location`. Off by default. |
 | Audit log file | `BLUELINK_AUDIT_LOG` | Optional full path to a JSON Lines file (its folder must exist), or `stderr` for Claude Desktop's MCP log. See [Audit log](configuration.md#audit-log). |
