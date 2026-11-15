@@ -1503,3 +1503,62 @@ def test_status_shows_the_charging_current_as_a_percentage(tmp_path):
 
     server, _ = make(tmp_path, factory=CurrentManager)
     assert call(server, "get_vehicle_status")[0]["charging"]["charging_current_percent"] == 90
+
+
+# --- battery conditioning ----------------------------------------------------
+
+
+class ConditioningManager(FakeManager):
+    def start_battery_conditioning(self, vid):
+        self.calls.append(("conditioning_start", vid))
+        return "act-bcs"
+
+    def stop_battery_conditioning(self, vid):
+        self.calls.append(("conditioning_stop", vid))
+        return "act-bce"
+
+
+def test_battery_conditioning_needs_writes(tmp_path):
+    server, _ = make(tmp_path, factory=ConditioningManager)
+    assert not {"start_battery_conditioning", "stop_battery_conditioning"} & tool_names(server)
+
+
+def test_battery_conditioning_start_and_stop(tmp_path):
+    log = tmp_path / "audit.jsonl"
+    server, _ = make(
+        tmp_path, factory=ConditioningManager, BLUELINK_ALLOW_WRITES="true", BLUELINK_AUDIT_LOG=str(log)
+    )
+    assert call(server, "start_battery_conditioning")[0]["action_id"] == "act-bcs"
+    with pytest.raises(ToolError, match="start_battery_conditioning was sent"):
+        call(server, "start_battery_conditioning")
+    assert call(server, "stop_battery_conditioning")[0]["action_id"] == "act-bce"
+    calls = FakeManager.instances[-1].calls
+    assert calls.count(("conditioning_start", "v1")) == 1 and calls.count(("conditioning_stop", "v1")) == 1
+    assert [e["outcome"] for e in audit_lines(log)] == ["ok", "error", "ok"]
+
+
+@pytest.mark.parametrize("tool", ["start_battery_conditioning", "stop_battery_conditioning"])
+def test_battery_conditioning_is_refused_outside_europe_cci(tmp_path, tool):
+    class OldRegionManager(ConditioningManager):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.api = NoExtrasApi()
+
+    server, _ = make(tmp_path, factory=OldRegionManager, BLUELINK_ALLOW_WRITES="true")
+    with pytest.raises(ToolError, match="isn't available in this Bluelink region"):
+        call(server, tool)
+    assert [c[0] for c in FakeManager.instances[-1].calls] == ["login"]
+
+
+def test_battery_conditioning_is_only_in_europe_cci_in_the_library():
+    from hyundai_kia_connect_api import VehicleManager
+
+    from bluelink_mcp.client import region_supports
+
+    def supports(region, brand):
+        api = VehicleManager.get_implementation_by_region_brand(region, brand, "en")
+        return region_supports(type("M", (), {"api": api})(), "start_battery_conditioning")
+
+    assert supports(9, 2)  # europe-cci, Hyundai
+    assert not supports(1, 2)  # europe, Hyundai
+    assert not supports(2, 2)  # Canada

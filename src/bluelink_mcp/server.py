@@ -433,6 +433,30 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             vehicle, "set_charge_limits", lambda m, v: m.set_charge_limits(v.id, ac_percent, dc_percent), wait
         )
 
+    @mcp.tool(title="Start battery conditioning", annotations=WRITE)
+    @logged()
+    async def start_battery_conditioning(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+        """Start warming (or cooling) the high-voltage battery, so it charges faster and the
+        car has more range when it's cold. Uses energy from the battery, or from the charger
+        when plugged in. EVs in europe-cci only."""
+
+        def start(m: Any, v: Any) -> str | None:
+            require(m, "start_battery_conditioning", "Battery conditioning")
+            return m.start_battery_conditioning(v.id)
+
+        return await command(vehicle, "start_battery_conditioning", start, wait)
+
+    @mcp.tool(title="Stop battery conditioning", annotations=WRITE)
+    @logged()
+    async def stop_battery_conditioning(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+        """Stop conditioning the high-voltage battery. EVs in europe-cci only."""
+
+        def stop(m: Any, v: Any) -> str | None:
+            require(m, "stop_battery_conditioning", "Battery conditioning")
+            return m.stop_battery_conditioning(v.id)
+
+        return await command(vehicle, "stop_battery_conditioning", stop, wait)
+
     @mcp.tool(title="Open the charge port", annotations=WRITE)
     @logged()
     async def open_charge_port(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
