@@ -6,6 +6,10 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-17
+
+This release renames every tool with a `bluelink_` prefix and aligns arguments, output and the token file with the other mattoddie MCP servers ahead of 1.0. bluelink-mcp has 24 tools (7 read, 16 write and 1 unlock). Read the **Breaking** entries before upgrading.
+
 ### Changed
 
 - **Breaking:** every tool name now starts with `bluelink_`, so the names stay distinct next to other MCP servers: `list_vehicles` → `bluelink_list_vehicles`, `get_vehicle_status` → `bluelink_get_vehicle_status`, `refresh_vehicle_status` → `bluelink_refresh_vehicle_status`, `get_vehicle_location` → `bluelink_get_vehicle_location`, `get_trips` → `bluelink_get_trips`, `get_energy_usage` → `bluelink_get_energy_usage`, `get_command_status` → `bluelink_get_command_status`, `lock_vehicle` → `bluelink_lock_vehicle`, `unlock_vehicle` → `bluelink_unlock_vehicle`, `start_climate` → `bluelink_start_climate`, `stop_climate` → `bluelink_stop_climate`, `start_charging` → `bluelink_start_charging`, `stop_charging` → `bluelink_stop_charging`, `set_charge_limits` → `bluelink_set_charge_limits`, `start_battery_conditioning` → `bluelink_start_battery_conditioning`, `stop_battery_conditioning` → `bluelink_stop_battery_conditioning`, `open_charge_port` → `bluelink_open_charge_port`, `close_charge_port` → `bluelink_close_charge_port`, `set_charging_current` → `bluelink_set_charging_current`, `set_charging_schedule` → `bluelink_set_charging_schedule`, `set_departure_schedule` → `bluelink_set_departure_schedule`, `close_windows` → `bluelink_close_windows`, `flash_hazard_lights` → `bluelink_flash_hazard_lights`, `sound_horn_and_flash_lights` → `bluelink_sound_horn_and_flash_lights`.
@@ -167,7 +171,8 @@ This release follows a security review. **It has breaking changes**; check the f
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.0...v0.3.1
