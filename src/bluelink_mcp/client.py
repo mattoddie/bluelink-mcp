@@ -348,11 +348,11 @@ class BluelinkClient:
             return matches[0]
         if len(matches) > 1:
             raise BluelinkError(
-                f"Several vehicles match {redact_vehicle(vehicle)!r}; give the ID or VIN from list_vehicles."
+                f"Several vehicles match {redact_vehicle(vehicle)!r}; give the ID or VIN from bluelink_list_vehicles."
             )
         hint = " Give the exact name, VIN or ID." if exact else ""
         raise BluelinkError(
-            f"No vehicle matches {redact_vehicle(vehicle)!r}. Use list_vehicles to see them.{hint}"
+            f"No vehicle matches {redact_vehicle(vehicle)!r}. Use bluelink_list_vehicles to see them.{hint}"
         )
 
     def status(self, vehicle: str | None, view: Callable[[Vehicle], T]) -> T:
@@ -383,7 +383,7 @@ class BluelinkClient:
                 raise BluelinkError(
                     f"The car was woken for a refresh {int(since / 60)} min ago. To spare its "
                     f"12V battery and the daily API quota, try again in about {wait} min, or use "
-                    "get_vehicle_status for the last known state."
+                    "bluelink_get_vehicle_status for the last known state."
                 )
             # Count the attempt even if it fails: a failed wake-up may still have reached the car.
             self._last_force_refresh[v.id] = time.monotonic()
@@ -424,7 +424,7 @@ class BluelinkClient:
             raise BluelinkError(
                 f"{name} was sent to {v.name} {int(since)} s ago. To avoid flooding the car and "
                 f"Bluelink's daily API quota with repeated commands, wait about {wait} s before "
-                "sending it again, or check the earlier one with get_command_status."
+                "sending it again, or check the earlier one with bluelink_get_command_status."
             )
 
     def command_target(self, vehicle: str | None, name: str, exact: bool = False) -> Vehicle:

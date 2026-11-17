@@ -41,7 +41,7 @@ Ask about your car in plain language. The assistant picks the tools; you don't n
 
 Your car doesn't stay online all the time. It uploads its state to Bluelink when you switch it off, while it charges, after a remote command, and every so often while parked. bluelink-mcp reads from Bluelink in two ways:
 
-| | `get_vehicle_status` (and location, energy use) | `refresh_vehicle_status` |
+| | `bluelink_get_vehicle_status` (and location, energy use) | `bluelink_refresh_vehicle_status` |
 |---|---|---|
 | Source | The state the car last uploaded to Bluelink | The car itself, woken up over the mobile network |
 | Speed | A second or two | 10 to 60 seconds |
@@ -63,8 +63,8 @@ By default (`wait: true`) the tool waits up to about 60 seconds for the car's an
 |---|---|
 | `success` | The car confirmed the command. |
 | `failed` | The car refused, usually because a condition wasn't met. For example, climate won't start with a door open or the battery too low, and charging won't start unless it's plugged in. |
-| `timeout` | Bluelink gave up waiting for the car. The command may or may not have happened. Check with `get_vehicle_status` in a minute. |
-| `pending` | The car hadn't answered after about 60 seconds, or you passed `wait: false`. Check later with `get_command_status` and the `action_id`. |
+| `timeout` | Bluelink gave up waiting for the car. The command may or may not have happened. Check with `bluelink_get_vehicle_status` in a minute. |
+| `pending` | The car hadn't answered after about 60 seconds, or you passed `wait: false`. Check later with `bluelink_get_command_status` and the `action_id`. |
 | `sent` | Some regions don't return an `action_id`, so there's nothing to track. |
 
 After a command, the next status read goes back to Bluelink instead of using the cache.
@@ -73,16 +73,16 @@ The same command can't be sent to the same car again within `BLUELINK_MIN_COMMAN
 
 ## Unlocking
 
-`unlock_vehicle` asks you to confirm on the server's side as well, on top of any approval prompt your client shows:
+`bluelink_unlock_vehicle` asks you to confirm on the server's side as well, on top of any approval prompt your client shows:
 
 - If your client supports MCP elicitation, the server asks you directly: *"Unlock Santa Fe (VIN ending 123456)?"* Nothing is unlocked unless you answer yes.
-- If it doesn't, the first call fails and asks the assistant to check with you. The assistant must then call again with `confirm` set to the car's name or the last 6 characters of its VIN, as `list_vehicles` shows them.
+- If it doesn't, the first call fails and asks the assistant to check with you. The assistant must then call again with `confirm` set to the car's name or the last 6 characters of its VIN, as `bluelink_list_vehicles` shows them.
 
-The confirm argument makes unlocking a deliberate two-step action, but a model that ignores its instructions could still fill it in itself. Keep your client's approval prompt for `unlock_vehicle` turned on.
+The confirm argument makes unlocking a deliberate two-step action, but a model that ignores its instructions could still fill it in itself. Keep your client's approval prompt for `bluelink_unlock_vehicle` turned on.
 
 ## Climate options
 
-`start_climate` takes:
+`bluelink_start_climate` takes:
 
 - `temperature`: 14 to 30 °C, rounded to the nearest 0.5. Always in °C, in every region. Bluelink USA takes whole °F from 62 to 82, so in the USA the temperature is converted and kept within that range (21 °C is sent as 70 °F), and the result shows `temperature_sent`. In Canada, cars older than model year 2020 start at 16 °C.
 - `duration_minutes`: 1 to 30. Default 10.
@@ -94,12 +94,12 @@ Which options a car honours depends on its equipment and Bluelink generation. On
 
 ## Charging
 
-- `start_charging` starts charging now. The car must be plugged in, and this overrides a charging schedule until it's unplugged.
-- `stop_charging` stops it.
-- `set_charge_limits` sets separate AC and DC limits in 10% steps from 50 to 100%. Most plug-in hybrids don't support limits and will report `failed`.
+- `bluelink_start_charging` starts charging now. The car must be plugged in, and this overrides a charging schedule until it's unplugged.
+- `bluelink_stop_charging` stops it.
+- `bluelink_set_charge_limits` sets separate AC and DC limits in 10% steps from 50 to 100%. Most plug-in hybrids don't support limits and will report `failed`.
 
 The status's `schedule` section shows the departure times and off-peak window set in the app.
 
 ## Several cars
 
-If your account has more than one car, such as a Kona and an Ioniq 5, or a Sportage and an EV9, pass `vehicle` with its name (as shown in the app), VIN or ID. Part of the name works too, as long as only one car matches, except for `unlock_vehicle`, which needs the exact name, VIN or ID when there are several cars. With one car you can leave it out. Ask *"Which cars do I have?"* to see them.
+If your account has more than one car, such as a Kona and an Ioniq 5, or a Sportage and an EV9, pass `vehicle` with its name (as shown in the app), VIN or ID. Part of the name works too, as long as only one car matches, except for `bluelink_unlock_vehicle`, which needs the exact name, VIN or ID when there are several cars. With one car you can leave it out. Ask *"Which cars do I have?"* to see them.

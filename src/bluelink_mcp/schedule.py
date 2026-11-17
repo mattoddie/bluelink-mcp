@@ -135,7 +135,7 @@ def build(
         raise BluelinkError(
             "Not changed: Bluelink doesn't report this car's current "
             f"{', '.join(missing)}, and the schedule is sent as a whole, so those settings "
-            "would be overwritten. Run refresh_vehicle_status and try again, or give them "
+            "would be overwritten. Run bluelink_refresh_vehicle_status and try again, or give them "
             "explicitly if this tool has them as arguments."
         )
     return options

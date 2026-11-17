@@ -1,9 +1,10 @@
 """MCP tools for Hyundai Bluelink and Kia Connect (and Genesis Connect, via the same library)."""
 
-# No `from __future__ import annotations`: unlock_vehicle's resolver parameter refers
+# No `from __future__ import annotations`: bluelink_unlock_vehicle's resolver parameter refers
 # to a function defined inside build_server, which string annotations couldn't see.
 
 import datetime as dt
+import math
 from functools import partial
 from typing import Annotated, Any, Literal
 
@@ -25,13 +26,13 @@ from . import __version__, schedule
 from .audit import AuditLog, audited
 from .client import BluelinkClient, BluelinkError, require
 from .config import REGIONS, Config
-from .format import clean, daily_stats, vehicle_location, vehicle_status, vehicle_summary
+from .format import clean, daily_stats, listing, vehicle_location, vehicle_status, vehicle_summary
 
 INSTRUCTIONS = """\
 Tools for a car connected to Hyundai Bluelink, Kia Connect (formerly UVO) or Genesis Connect.
 
-get_vehicle_status returns what the car last reported to the service, which is cheap and
-does not disturb the car; check last_updated_at. Use refresh_vehicle_status only when
+bluelink_get_vehicle_status returns what the car last reported to the service, which is cheap and
+does not disturb the car; check last_updated_at. Use bluelink_refresh_vehicle_status only when
 the user needs live data: it wakes the car, drains a little of the 12V battery and
 counts against a daily API limit.
 
@@ -54,7 +55,7 @@ WaitArg = Annotated[
     bool,
     Field(
         description="Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, "
-        "the status is pending: check later with get_command_status."
+        "the status is pending: check later with bluelink_get_command_status."
     ),
 ]
 
@@ -80,13 +81,15 @@ CHARGING_CURRENT_LEVELS = {100: 1, 90: 2, 60: 3}
 USA_MIN_F, USA_MAX_F = 62, 82
 # Bluelink Canada's oldest cars (before model year 2020) start at 16 °C.
 CANADA_OLD_MODEL_YEAR, CANADA_OLD_MIN_C = 2020, 16
+# bluelink_get_energy_usage looks back at most 31 days.
+MAX_ENERGY_HOURS = 31 * 24
 
 ConfirmArg = Annotated[
     str | None,
     Field(
         description="Only needed when the MCP client can't ask the user itself (no elicitation "
-        "support): the car's name or the last 6 characters of its VIN, exactly as list_vehicles "
-        "or get_vehicle_status show them. Ask the user before setting it."
+        "support): the car's name or the last 6 characters of its VIN, exactly as bluelink_list_vehicles "
+        "or bluelink_get_vehicle_status show them. Ask the user before setting it."
     ),
 ]
 
@@ -196,34 +199,34 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
     # --- read ---------------------------------------------------------------
 
     @mcp.tool(title="List vehicles", annotations=READ)
-    async def list_vehicles() -> list[dict[str, Any]]:
-        """List the vehicles on the account."""
-        return await run(client.vehicles, vehicle_summary)
+    async def bluelink_list_vehicles() -> dict[str, Any]:
+        """List the vehicles on the account, as {total, returned, items}."""
+        return listing(await run(client.vehicles, vehicle_summary))
 
     @mcp.tool(title="Get vehicle status", annotations=READ)
-    async def get_vehicle_status(vehicle: VehicleArg = None) -> dict[str, Any]:
+    async def bluelink_get_vehicle_status(vehicle: VehicleArg = None) -> dict[str, Any]:
         """Get the car's last reported state: battery and fuel, range, charging, climate,
         locks, doors, windows, tyres, warnings and charging schedule. Does not wake the car."""
         return await run(client.status, vehicle, vehicle_status)
 
     @mcp.tool(title="Refresh vehicle status from the car", annotations=WAKE)
     @logged()
-    async def refresh_vehicle_status(vehicle: VehicleArg = None) -> dict[str, Any]:
-        """Wake the car and fetch live state, then return it like get_vehicle_status.
+    async def bluelink_refresh_vehicle_status(vehicle: VehicleArg = None) -> dict[str, Any]:
+        """Wake the car and fetch live state, then return it like bluelink_get_vehicle_status.
         Uses a little 12V battery and API quota, so it is rate limited."""
         return await run(client.force_refresh, vehicle, vehicle_status)
 
     if config.allow_location:
 
         @mcp.tool(title="Get vehicle location", annotations=READ)
-        async def get_vehicle_location(vehicle: VehicleArg = None) -> dict[str, Any]:
+        async def bluelink_get_vehicle_location(vehicle: VehicleArg = None) -> dict[str, Any]:
             """Get where the car is parked (latitude/longitude, and an address if geocoding is on)."""
             return await run(
                 client.status, vehicle, partial(vehicle_location, precision=config.location_precision)
             )
 
     @mcp.tool(title="Get trips", annotations=READ)
-    async def get_trips(
+    async def bluelink_get_trips(
         vehicle: VehicleArg = None,
         date: Annotated[
             str | None,
@@ -251,16 +254,26 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         return await run(client.trip_info, vehicle, period, view)
 
     @mcp.tool(title="Get daily energy usage", annotations=READ)
-    async def get_energy_usage(
+    async def bluelink_get_energy_usage(
         vehicle: VehicleArg = None,
-        days: Annotated[int, Field(ge=1, le=31, description="How many recent days.")] = 7,
-    ) -> list[dict[str, Any]]:
+        hours: Annotated[
+            float,
+            Field(
+                gt=0,
+                le=MAX_ENERGY_HOURS,
+                description="How far back to look, in hours (up to 744, 31 days). The car reports "
+                "whole days, so this is rounded up to whole days: 24 or less gives the latest day.",
+            ),
+        ] = 168,
+    ) -> dict[str, Any]:
         """Get daily electric energy use (Wh) split into driving, climate, electronics and
-        battery care, plus regenerated energy and distance. EVs and PHEVs in some regions."""
+        battery care, plus regenerated energy and distance, newest day first, as
+        {total, returned, items}. EVs and PHEVs in some regions."""
+        days = math.ceil(hours / 24)
         return await run(client.status, vehicle, partial(daily_stats, days=days))
 
     @mcp.tool(title="Get command status", annotations=READ)
-    async def get_command_status(
+    async def bluelink_get_command_status(
         action_id: Annotated[
             str,
             Field(
@@ -284,9 +297,9 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
 
     @mcp.tool(title="Lock the car", annotations=WRITE)
     @logged()
-    async def lock_vehicle(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_lock_vehicle(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Lock the car's doors."""
-        return await command(vehicle, "lock_vehicle", lambda m, v: m.lock(v.id), wait)
+        return await command(vehicle, "bluelink_lock_vehicle", lambda m, v: m.lock(v.id), wait)
 
     if config.allow_unlock:
 
@@ -299,11 +312,11 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
                 return None
             # Also checks the rate limit, so the user isn't asked for an unlock that can't be sent.
             try:
-                car = await run(client.command_target, vehicle, "unlock_vehicle", exact=True)
+                car = await run(client.command_target, vehicle, "bluelink_unlock_vehicle", exact=True)
             except BaseException as ex:
                 # The tool itself never runs, so its audit wrapper can't record the refusal.
                 if audit_log is not None:
-                    audit_log.record("unlock_vehicle", {"vehicle": vehicle}, error=ex)
+                    audit_log.record("bluelink_unlock_vehicle", {"vehicle": vehicle}, error=ex)
                 raise
             vin = str(car.VIN or "")
             vin_hint = f" (VIN ending {vin[-VIN_SUFFIX:]})" if len(vin) >= VIN_SUFFIX else ""
@@ -314,7 +327,7 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
 
         @mcp.tool(title="Unlock the car", annotations=SENSITIVE)
         @logged(skip=("answer",))
-        async def unlock_vehicle(
+        async def bluelink_unlock_vehicle(
             # Filled by the server, not the model: the user's answer, or an accepted
             # result without data when the client couldn't be asked.
             answer: Annotated[ElicitationResult[UnlockConfirmation], Resolve(ask_to_unlock)],
@@ -334,18 +347,20 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
                     raise BluelinkError("Not unlocked: the user said no.")
             else:
                 # The client couldn't ask the user, so the model must repeat the car's identity.
-                car = await run(client.command_target, vehicle, "unlock_vehicle", exact=True)
+                car = await run(client.command_target, vehicle, "bluelink_unlock_vehicle", exact=True)
                 if not confirmation_matches(car, confirm):
                     raise BluelinkError(
                         "Not unlocked: this needs confirmation. Ask the user to confirm they want to "
-                        "unlock the car, then call unlock_vehicle again with confirm set to the car's "
-                        f"name or the last {VIN_SUFFIX} characters of its VIN, as list_vehicles shows them."
+                        "unlock the car, then call bluelink_unlock_vehicle again with confirm set to the car's "
+                        f"name or the last {VIN_SUFFIX} characters of its VIN, as bluelink_list_vehicles shows them."
                     )
-            return await command(vehicle, "unlock_vehicle", lambda m, v: m.unlock(v.id), wait, exact=True)
+            return await command(
+                vehicle, "bluelink_unlock_vehicle", lambda m, v: m.unlock(v.id), wait, exact=True
+            )
 
     @mcp.tool(title="Start climate control", annotations=WRITE)
     @logged()
-    async def start_climate(
+    async def bluelink_start_climate(
         vehicle: VehicleArg = None,
         temperature: Annotated[
             float,
@@ -394,32 +409,32 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
                 raise BluelinkError(f"This car's lowest temperature is {CANADA_OLD_MIN_C} °C")
             return m.start_climate(v.id, options)
 
-        result = await command(vehicle, "start_climate", start, wait)
+        result = await command(vehicle, "bluelink_start_climate", start, wait)
         if config.region == REGIONS["usa"]:
             result["temperature_sent"] = f"{options.set_temp} °F"
         return result
 
     @mcp.tool(title="Stop climate control", annotations=WRITE)
     @logged()
-    async def stop_climate(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_stop_climate(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Stop cabin pre-conditioning."""
-        return await command(vehicle, "stop_climate", lambda m, v: m.stop_climate(v.id), wait)
+        return await command(vehicle, "bluelink_stop_climate", lambda m, v: m.stop_climate(v.id), wait)
 
     @mcp.tool(title="Start charging", annotations=WRITE)
     @logged()
-    async def start_charging(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_start_charging(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Start charging now (the car must be plugged in). Overrides a charging schedule."""
-        return await command(vehicle, "start_charging", lambda m, v: m.start_charge(v.id), wait)
+        return await command(vehicle, "bluelink_start_charging", lambda m, v: m.start_charge(v.id), wait)
 
     @mcp.tool(title="Stop charging", annotations=WRITE)
     @logged()
-    async def stop_charging(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_stop_charging(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Stop charging."""
-        return await command(vehicle, "stop_charging", lambda m, v: m.stop_charge(v.id), wait)
+        return await command(vehicle, "bluelink_stop_charging", lambda m, v: m.stop_charge(v.id), wait)
 
     @mcp.tool(title="Set charge limits", annotations=WRITE)
     @logged()
-    async def set_charge_limits(
+    async def bluelink_set_charge_limits(
         ac_percent: Annotated[
             int, Field(ge=50, le=100, multiple_of=10, description="Limit for AC (home/public) charging.")
         ],
@@ -431,12 +446,17 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
     ) -> dict[str, Any]:
         """Set the maximum charge level. Mainly for EVs; many plug-in hybrids don't support it."""
         return await command(
-            vehicle, "set_charge_limits", lambda m, v: m.set_charge_limits(v.id, ac_percent, dc_percent), wait
+            vehicle,
+            "bluelink_set_charge_limits",
+            lambda m, v: m.set_charge_limits(v.id, ac_percent, dc_percent),
+            wait,
         )
 
     @mcp.tool(title="Start battery conditioning", annotations=WRITE)
     @logged()
-    async def start_battery_conditioning(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_start_battery_conditioning(
+        vehicle: VehicleArg = None, wait: WaitArg = True
+    ) -> dict[str, Any]:
         """Start warming (or cooling) the high-voltage battery, so it charges faster and the
         car has more range when it's cold. Uses energy from the battery, or from the charger
         when plugged in. EVs in europe-cci only."""
@@ -445,22 +465,24 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             require(m, "start_battery_conditioning", "Battery conditioning")
             return m.start_battery_conditioning(v.id)
 
-        return await command(vehicle, "start_battery_conditioning", start, wait)
+        return await command(vehicle, "bluelink_start_battery_conditioning", start, wait)
 
     @mcp.tool(title="Stop battery conditioning", annotations=WRITE)
     @logged()
-    async def stop_battery_conditioning(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_stop_battery_conditioning(
+        vehicle: VehicleArg = None, wait: WaitArg = True
+    ) -> dict[str, Any]:
         """Stop conditioning the high-voltage battery. EVs in europe-cci only."""
 
         def stop(m: Any, v: Any) -> str | None:
             require(m, "stop_battery_conditioning", "Battery conditioning")
             return m.stop_battery_conditioning(v.id)
 
-        return await command(vehicle, "stop_battery_conditioning", stop, wait)
+        return await command(vehicle, "bluelink_stop_battery_conditioning", stop, wait)
 
     @mcp.tool(title="Open the charge port", annotations=WRITE)
     @logged()
-    async def open_charge_port(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_open_charge_port(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Open the charging port door, ready to plug in. EVs and plug-in hybrids with a
         motorised port door, in Europe, Australia, New Zealand, China and India."""
 
@@ -468,11 +490,11 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             require(m, "charge_port_action", "Opening the charge port")
             return m.open_charge_port(v.id)
 
-        return await command(vehicle, "open_charge_port", open_port, wait)
+        return await command(vehicle, "bluelink_open_charge_port", open_port, wait)
 
     @mcp.tool(title="Close the charge port", annotations=WRITE)
     @logged()
-    async def close_charge_port(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_close_charge_port(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Close the charging port door. EVs and plug-in hybrids with a motorised port door,
         in Europe, Australia, New Zealand, China and India."""
 
@@ -480,11 +502,11 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             require(m, "charge_port_action", "Closing the charge port")
             return m.close_charge_port(v.id)
 
-        return await command(vehicle, "close_charge_port", close_port, wait)
+        return await command(vehicle, "bluelink_close_charge_port", close_port, wait)
 
     @mcp.tool(title="Set the AC charging current", annotations=WRITE)
     @logged()
-    async def set_charging_current(
+    async def bluelink_set_charging_current(
         percent: Annotated[
             Literal[100, 90, 60],
             Field(description="Maximum AC charging current, as a share of the full current: 100, 90 or 60."),
@@ -501,11 +523,11 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             require(m, "set_charging_current", "Setting the charging current")
             return m.set_charging_current(v.id, level)
 
-        return await command(vehicle, "set_charging_current", set_current, wait)
+        return await command(vehicle, "bluelink_set_charging_current", set_current, wait)
 
     @mcp.tool(title="Set the charging schedule", annotations=WRITE)
     @logged()
-    async def set_charging_schedule(
+    async def bluelink_set_charging_schedule(
         scheduled_charging: Annotated[
             bool | None,
             Field(description="Turn scheduled charging on or off. Leave out to keep it as is."),
@@ -544,12 +566,12 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         def send(m: Any, v: Any) -> str | None:
             return schedule.send(m, v, schedule.CHARGE, partial(build, v))
 
-        result = await command(vehicle, "set_charging_schedule", send, wait)
+        result = await command(vehicle, "bluelink_set_charging_schedule", send, wait)
         return {**result, **clean(sent)}
 
     @mcp.tool(title="Set a departure time", annotations=WRITE)
     @logged()
-    async def set_departure_schedule(
+    async def bluelink_set_departure_schedule(
         slot: Annotated[
             Literal[1, 2], Field(description="Which of the car's two departure times to change.")
         ],
@@ -606,12 +628,12 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
         def send(m: Any, v: Any) -> str | None:
             return schedule.send(m, v, schedule.CLIMATE, partial(build, v))
 
-        result = await command(vehicle, "set_departure_schedule", send, wait)
+        result = await command(vehicle, "bluelink_set_departure_schedule", send, wait)
         return {**result, **clean(sent)}
 
     @mcp.tool(title="Close the windows", annotations=WRITE)
     @logged()
-    async def close_windows(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_close_windows(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
         """Close all four side windows, e.g. when the user left one open and rain is coming.
         There is deliberately no tool to open them. Not every car has remote window control;
         not available in the USA or Canada."""
@@ -624,11 +646,13 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             )
             return m.set_windows_state(v.id, options)
 
-        return await command(vehicle, "close_windows", close, wait)
+        return await command(vehicle, "bluelink_close_windows", close, wait)
 
     @mcp.tool(title="Flash hazard lights", annotations=WRITE)
     @logged()
-    async def flash_hazard_lights(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_flash_hazard_lights(
+        vehicle: VehicleArg = None, wait: WaitArg = True
+    ) -> dict[str, Any]:
         """Flash the hazard lights briefly, e.g. to find the car in a car park. Not available
         in Canada or for Kia in the USA."""
 
@@ -636,20 +660,22 @@ def build_server(config: Config, client: BluelinkClient | None = None) -> MCPSer
             require(m, "start_hazard_lights", "Flashing the hazard lights")
             return m.start_hazard_lights(v.id)
 
-        return await command(vehicle, "flash_hazard_lights", flash, wait)
+        return await command(vehicle, "bluelink_flash_hazard_lights", flash, wait)
 
     @mcp.tool(title="Sound the horn and flash the lights", annotations=WRITE)
     @logged()
-    async def sound_horn_and_flash_lights(vehicle: VehicleArg = None, wait: WaitArg = True) -> dict[str, Any]:
+    async def bluelink_sound_horn_and_flash_lights(
+        vehicle: VehicleArg = None, wait: WaitArg = True
+    ) -> dict[str, Any]:
         """Sound the horn and flash the hazard lights for a short while, e.g. to find the car.
         It is loud and can disturb people nearby, so only do this when the user asks for the
-        horn; to just find the car, prefer flash_hazard_lights. Not available in Canada or
+        horn; to just find the car, prefer bluelink_flash_hazard_lights. Not available in Canada or
         for Kia in the USA."""
 
         def honk(m: Any, v: Any) -> str | None:
             require(m, "start_hazard_lights_and_horn", "Sounding the horn")
             return m.start_hazard_lights_and_horn(v.id)
 
-        return await command(vehicle, "sound_horn_and_flash_lights", honk, wait)
+        return await command(vehicle, "bluelink_sound_horn_and_flash_lights", honk, wait)
 
     return mcp

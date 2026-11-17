@@ -18,7 +18,7 @@ body:
     id: tool
     attributes:
       label: Tool(s) involved
-      placeholder: e.g. start_climate
+      placeholder: e.g. bluelink_start_climate
   - type: textarea
     id: error
     attributes:

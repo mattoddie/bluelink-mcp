@@ -73,10 +73,10 @@ The bundle uses Claude Desktop's uv runtime: on first start, Claude Desktop down
 | Region, Brand | `BLUELINK_REGION`, `BLUELINK_BRAND` | See [Choosing a region](configuration.md#choosing-a-region). Default `europe` and `hyundai`. |
 | Allow commands | `BLUELINK_ALLOW_WRITES` | Lock, climate, charging and the other commands, such as the horn and lights. Off by default. |
 | Allow unlocking | `BLUELINK_ALLOW_UNLOCK` | Needs *Allow commands*. Each unlock also needs your confirmation; see [Unlocking](usage.md#unlocking). |
-| Share location | `BLUELINK_ALLOW_LOCATION` | Registers `get_vehicle_location`. Off by default. |
+| Share location | `BLUELINK_ALLOW_LOCATION` | Registers `bluelink_get_vehicle_location`. Off by default. |
 | Audit log file | `BLUELINK_AUDIT_LOG` | Optional full path to a JSON Lines file (its folder must exist), or `stderr` for Claude Desktop's MCP log. See [Audit log](configuration.md#audit-log). |
 
-Other settings keep their defaults, including the login token cache in `~/.local/state/bluelink-mcp/token.json`. The server's own log goes to Claude Desktop's MCP server logs.
+Other settings keep their defaults, including the login token cache in `~/.config/bluelink-mcp/tokens.json`. The server's own log goes to Claude Desktop's MCP server logs.
 
 ### Without the extension
 

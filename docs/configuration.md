@@ -47,9 +47,9 @@ The region must match where your account was created, not where the car is now. 
 | Variable | Default | Description |
 |---|---|---|
 | `BLUELINK_ALLOW_WRITES` | `false` | Register the command tools: lock, climate, charging, horn and lights and the others in the [tool reference](tools.md) (all but unlock) |
-| `BLUELINK_ALLOW_LOCATION` | `false` | Register `get_vehicle_location`, which tells the assistant where the car is. Off by default, because the location reveals where you live, work and park. Other tools never return the location. |
-| `BLUELINK_LOCATION_PRECISION` | `4` | How many decimal places of latitude and longitude `get_vehicle_location` returns, from `0` to `15`. `4` is about 10 m, enough to find the car; `3` is about 100 m, `2` about 1 km. The street address from `BLUELINK_GEOCODE` isn't rounded. |
-| `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `unlock_vehicle`. Needs `BLUELINK_ALLOW_WRITES=true`; the server refuses to start otherwise. Each unlock also needs your confirmation; see [Unlocking](usage.md#unlocking). |
+| `BLUELINK_ALLOW_LOCATION` | `false` | Register `bluelink_get_vehicle_location`, which tells the assistant where the car is. Off by default, because the location reveals where you live, work and park. Other tools never return the location. |
+| `BLUELINK_LOCATION_PRECISION` | `4` | How many decimal places of latitude and longitude `bluelink_get_vehicle_location` returns, from `0` to `15`. `4` is about 10 m, enough to find the car; `3` is about 100 m, `2` about 1 km. The street address from `BLUELINK_GEOCODE` isn't rounded. |
+| `BLUELINK_ALLOW_UNLOCK` | `false` | Also register `bluelink_unlock_vehicle`. Needs `BLUELINK_ALLOW_WRITES=true`; the server refuses to start otherwise. Each unlock also needs your confirmation; see [Unlocking](usage.md#unlocking). |
 
 Tools that aren't allowed are **not registered at all**, so the assistant can't see them, let alone call them. The [tool reference](tools.md) shows which setting each tool needs.
 
@@ -72,10 +72,10 @@ Sizes are of the `tools/list` result, measured with the server over stdio. Turn 
 |---|---|---|
 | `BLUELINK_AUDIT_LOG` | (off) | Record every call of a tool that acts on the car. A file path appends JSON Lines to that file, which is created with mode `0600` if it doesn't exist (`~` is expanded). `stderr` writes the lines to standard error, next to the server's other logs. |
 
-Each line is one call of a command tool (`lock_vehicle`, `unlock_vehicle`, `start_climate`, `stop_climate`, `start_charging`, `stop_charging`, `set_charge_limits`, `flash_hazard_lights`, `sound_horn_and_flash_lights` and the others marked write in the [tool reference](tools.md)) or of `refresh_vehicle_status`, which wakes the car. Calls that failed or were refused, such as an unlock the user didn't confirm or a command sent again too soon, are logged too. Reads aren't logged.
+Each line is one call of a command tool (`bluelink_lock_vehicle`, `bluelink_unlock_vehicle`, `bluelink_start_climate`, `bluelink_stop_climate`, `bluelink_start_charging`, `bluelink_stop_charging`, `bluelink_set_charge_limits`, `bluelink_flash_hazard_lights`, `bluelink_sound_horn_and_flash_lights` and the others marked write in the [tool reference](tools.md)) or of `bluelink_refresh_vehicle_status`, which wakes the car. Calls that failed or were refused, such as an unlock the user didn't confirm or a command sent again too soon, are logged too. Reads aren't logged.
 
 ```json
-{"time":"2026-10-22T07:41:09.512Z","tool":"start_climate","arguments":{"vehicle":null,"temperature":21,"duration_minutes":10,"defrost":false,"heated_rear_window_and_mirrors":false,"heated_steering_wheel":false,"front_left_seat":null,"front_right_seat":null,"rear_left_seat":null,"rear_right_seat":null,"wait":true},"result":{"vehicle":"Santa Fe","action_id":"5c1f…","status":"success"},"outcome":"ok"}
+{"time":"2026-10-22T07:41:09.512Z","tool":"bluelink_start_climate","arguments":{"vehicle":null,"temperature":21,"duration_minutes":10,"defrost":false,"heated_rear_window_and_mirrors":false,"heated_steering_wheel":false,"front_left_seat":null,"front_right_seat":null,"rear_left_seat":null,"rear_right_seat":null,"wait":true},"result":{"vehicle":"Santa Fe","action_id":"5c1f…","status":"success"},"outcome":"ok"}
 ```
 
 | Field | Meaning |
@@ -96,8 +96,8 @@ In Docker, put the log on the data volume, for example `BLUELINK_AUDIT_LOG=/data
 | Variable | Default | Description |
 |---|---|---|
 | `BLUELINK_CACHE_SECONDS` | `60` | How long a status read from Bluelink is reused before asking again. This saves API calls when the assistant asks for status and location one after the other. |
-| `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum time between `refresh_vehicle_status` calls for each car. Waking the car uses its 12V battery and counts against the daily API limit. At least `1`. |
-| `BLUELINK_MIN_COMMAND_SECONDS` | `60` | Minimum time before the same command (such as `lock_vehicle`) can be sent to the same car again. A failed attempt counts too. `0` turns it off. |
+| `BLUELINK_MIN_REFRESH_MINUTES` | `10` | Minimum time between `bluelink_refresh_vehicle_status` calls for each car. Waking the car uses its 12V battery and counts against the daily API limit. At least `1`. |
+| `BLUELINK_MIN_COMMAND_SECONDS` | `60` | Minimum time before the same command (such as `bluelink_lock_vehicle`) can be sent to the same car again. A failed attempt counts too. `0` turns it off. |
 
 See [Cached and live data](usage.md#cached-and-live-data) for what these mean in practice.
 
@@ -105,7 +105,7 @@ See [Cached and live data](usage.md#cached-and-live-data) for what these mean in
 
 | Variable | Default | Description |
 |---|---|---|
-| `BLUELINK_TOKEN_FILE` | `$XDG_STATE_HOME/bluelink-mcp/token.json` (usually `~/.local/state/bluelink-mcp/token.json`); `/data/token.json` in the Docker image | Where to cache the Bluelink login. Set it to an empty value to turn caching off. |
+| `BLUELINK_TOKEN_FILE` | `$XDG_CONFIG_HOME/bluelink-mcp/tokens.json` (usually `~/.config/bluelink-mcp/tokens.json`); `/data/tokens.json` in the Docker image | Where to cache the Bluelink login. Set it to an empty value to turn caching off. |
 | `BLUELINK_LOGIN_RETRY_MINUTES` | `5` | After Bluelink rejects a login (or asks for a one-time passcode), how long to wait before trying again. Network errors don't start the wait. Until then, tools return an error without contacting Bluelink. `0` turns the wait off. |
 
 Bluelink can temporarily block accounts that log in too often, so the server saves its session and reuses it until it expires, then refreshes it. The file is written with mode `0600`. It contains session tokens (but not your password or PIN), which are enough to use your Bluelink account until they expire, so protect it like a password. A cache written for a different username, or one that can't be read, is ignored.
