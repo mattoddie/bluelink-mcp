@@ -15,6 +15,6 @@ wheels/
 
 # Secrets and the cached Bluelink login token
 .env
-token.json
+tokens.json
 data/
 .build/

@@ -8,7 +8,7 @@ Each tool is labelled with the setting it needs:
 
 | Label | Registered when |
 |---|---|
-| 🟢 read | Always, except `get_vehicle_location`, which needs `BLUELINK_ALLOW_LOCATION=true` |
+| 🟢 read | Always, except `bluelink_get_vehicle_location`, which needs `BLUELINK_ALLOW_LOCATION=true` |
 | 🟠 write | `BLUELINK_ALLOW_WRITES=true` |
 | 🔴 unlock | `BLUELINK_ALLOW_WRITES=true` and `BLUELINK_ALLOW_UNLOCK=true` |
 
@@ -28,21 +28,21 @@ The car's state as Bluelink last heard it, live refreshes, location and command 
 
 | Tool | Access | Summary |
 |---|---|---|
-| [`list_vehicles`](#list_vehicles) | 🟢 read | List vehicles |
-| [`get_vehicle_status`](#get_vehicle_status) | 🟢 read | Get vehicle status |
-| [`refresh_vehicle_status`](#refresh_vehicle_status) | 🟢 read | Refresh vehicle status from the car |
-| [`get_vehicle_location`](#get_vehicle_location) | 🟢 read | Get vehicle location |
-| [`get_command_status`](#get_command_status) | 🟢 read | Get command status |
+| [`bluelink_list_vehicles`](#bluelink_list_vehicles) | 🟢 read | List vehicles |
+| [`bluelink_get_vehicle_status`](#bluelink_get_vehicle_status) | 🟢 read | Get vehicle status |
+| [`bluelink_refresh_vehicle_status`](#bluelink_refresh_vehicle_status) | 🟢 read | Refresh vehicle status from the car |
+| [`bluelink_get_vehicle_location`](#bluelink_get_vehicle_location) | 🟢 read | Get vehicle location |
+| [`bluelink_get_command_status`](#bluelink_get_command_status) | 🟢 read | Get command status |
 
-### list_vehicles
+### bluelink_list_vehicles
 
 🟢 read
 
-List the vehicles on the account.
+List the vehicles on the account, as {total, returned, items}.
 
 _No arguments._
 
-### get_vehicle_status
+### bluelink_get_vehicle_status
 
 🟢 read
 
@@ -52,17 +52,17 @@ Get the car's last reported state: battery and fuel, range, charging, climate, l
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
 
-### refresh_vehicle_status
+### bluelink_refresh_vehicle_status
 
 🟢 read
 
-Wake the car and fetch live state, then return it like get_vehicle_status. Uses a little 12V battery and API quota, so it is rate limited.
+Wake the car and fetch live state, then return it like bluelink_get_vehicle_status. Uses a little 12V battery and API quota, so it is rate limited.
 
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
 
-### get_vehicle_location
+### bluelink_get_vehicle_location
 
 🟢 read
 
@@ -72,7 +72,7 @@ Get where the car is parked (latitude/longitude, and an address if geocoding is 
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
 
-### get_command_status
+### bluelink_get_command_status
 
 🟢 read
 
@@ -89,10 +89,10 @@ Driving history and daily energy use.
 
 | Tool | Access | Summary |
 |---|---|---|
-| [`get_trips`](#get_trips) | 🟢 read | Get trips |
-| [`get_energy_usage`](#get_energy_usage) | 🟢 read | Get daily energy usage |
+| [`bluelink_get_trips`](#bluelink_get_trips) | 🟢 read | Get trips |
+| [`bluelink_get_energy_usage`](#bluelink_get_energy_usage) | 🟢 read | Get daily energy usage |
 
-### get_trips
+### bluelink_get_trips
 
 🟢 read
 
@@ -103,16 +103,16 @@ Get driving history: trips for a day, or a month's summary with trip counts per 
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
 | `date` | string |  |  | YYYY-MM-DD for that day's trips, or YYYY-MM for a month summary. Defaults to today in the car's time zone. |
 
-### get_energy_usage
+### bluelink_get_energy_usage
 
 🟢 read
 
-Get daily electric energy use (Wh) split into driving, climate, electronics and battery care, plus regenerated energy and distance. EVs and PHEVs in some regions.
+Get daily electric energy use (Wh) split into driving, climate, electronics and battery care, plus regenerated energy and distance, newest day first, as {total, returned, items}. EVs and PHEVs in some regions.
 
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `days` | integer |  | `7` | How many recent days. |
+| `hours` | number |  | `168` | How far back to look, in hours (up to 744, 31 days). The car reports whole days, so this is rounded up to whole days: 24 or less gives the latest day. |
 
 ## climate
 
@@ -120,10 +120,10 @@ Pre-conditioning the cabin: temperature, defrost, heated rear window, steering w
 
 | Tool | Access | Summary |
 |---|---|---|
-| [`start_climate`](#start_climate) | 🟠 write | Start climate control |
-| [`stop_climate`](#stop_climate) | 🟠 write | Stop climate control |
+| [`bluelink_start_climate`](#bluelink_start_climate) | 🟠 write | Start climate control |
+| [`bluelink_stop_climate`](#bluelink_stop_climate) | 🟠 write | Stop climate control |
 
-### start_climate
+### bluelink_start_climate
 
 🟠 write
 
@@ -141,9 +141,9 @@ Start pre-conditioning the cabin (heating or cooling). Seat settings only apply 
 | `front_right_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to not ask for a change. In the USA and Canada, Bluelink turns a seat that is left out off. |
 | `rear_left_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to not ask for a change. In the USA and Canada, Bluelink turns a seat that is left out off. |
 | `rear_right_seat` | `off` \| `low_heat` \| `medium_heat` \| `high_heat` \| `low_cool` \| `medium_cool` \| `high_cool` |  |  | Seat heating or ventilation, on cars that have it. Leave out to not ask for a change. In the USA and Canada, Bluelink turns a seat that is left out off. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### stop_climate
+### bluelink_stop_climate
 
 🟠 write
 
@@ -152,7 +152,7 @@ Stop cabin pre-conditioning.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
 ## charging
 
@@ -160,18 +160,18 @@ Starting and stopping charging, charge limits and current, battery conditioning,
 
 | Tool | Access | Summary |
 |---|---|---|
-| [`start_charging`](#start_charging) | 🟠 write | Start charging |
-| [`stop_charging`](#stop_charging) | 🟠 write | Stop charging |
-| [`set_charge_limits`](#set_charge_limits) | 🟠 write | Set charge limits |
-| [`set_charging_current`](#set_charging_current) | 🟠 write | Set the AC charging current |
-| [`start_battery_conditioning`](#start_battery_conditioning) | 🟠 write | Start battery conditioning |
-| [`stop_battery_conditioning`](#stop_battery_conditioning) | 🟠 write | Stop battery conditioning |
-| [`open_charge_port`](#open_charge_port) | 🟠 write | Open the charge port |
-| [`close_charge_port`](#close_charge_port) | 🟠 write | Close the charge port |
-| [`set_charging_schedule`](#set_charging_schedule) | 🟠 write | Set the charging schedule |
-| [`set_departure_schedule`](#set_departure_schedule) | 🟠 write | Set a departure time |
+| [`bluelink_start_charging`](#bluelink_start_charging) | 🟠 write | Start charging |
+| [`bluelink_stop_charging`](#bluelink_stop_charging) | 🟠 write | Stop charging |
+| [`bluelink_set_charge_limits`](#bluelink_set_charge_limits) | 🟠 write | Set charge limits |
+| [`bluelink_set_charging_current`](#bluelink_set_charging_current) | 🟠 write | Set the AC charging current |
+| [`bluelink_start_battery_conditioning`](#bluelink_start_battery_conditioning) | 🟠 write | Start battery conditioning |
+| [`bluelink_stop_battery_conditioning`](#bluelink_stop_battery_conditioning) | 🟠 write | Stop battery conditioning |
+| [`bluelink_open_charge_port`](#bluelink_open_charge_port) | 🟠 write | Open the charge port |
+| [`bluelink_close_charge_port`](#bluelink_close_charge_port) | 🟠 write | Close the charge port |
+| [`bluelink_set_charging_schedule`](#bluelink_set_charging_schedule) | 🟠 write | Set the charging schedule |
+| [`bluelink_set_departure_schedule`](#bluelink_set_departure_schedule) | 🟠 write | Set a departure time |
 
-### start_charging
+### bluelink_start_charging
 
 🟠 write
 
@@ -180,9 +180,9 @@ Start charging now (the car must be plugged in). Overrides a charging schedule.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### stop_charging
+### bluelink_stop_charging
 
 🟠 write
 
@@ -191,9 +191,9 @@ Stop charging.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### set_charge_limits
+### bluelink_set_charge_limits
 
 🟠 write
 
@@ -204,9 +204,9 @@ Set the maximum charge level. Mainly for EVs; many plug-in hybrids don't support
 | `ac_percent` | integer | yes |  | Limit for AC (home/public) charging. |
 | `dc_percent` | integer | yes |  | Limit for DC rapid charging. |
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### set_charging_current
+### bluelink_set_charging_current
 
 🟠 write
 
@@ -216,9 +216,9 @@ Limit the current the car draws when AC charging, e.g. to go easy on a weak hous
 |---|---|---|---|---|
 | `percent` | `100` \| `90` \| `60` | yes |  | Maximum AC charging current, as a share of the full current: 100, 90 or 60. |
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### start_battery_conditioning
+### bluelink_start_battery_conditioning
 
 🟠 write
 
@@ -227,9 +227,9 @@ Start warming (or cooling) the high-voltage battery, so it charges faster and th
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### stop_battery_conditioning
+### bluelink_stop_battery_conditioning
 
 🟠 write
 
@@ -238,9 +238,9 @@ Stop conditioning the high-voltage battery. EVs in europe-cci only.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### open_charge_port
+### bluelink_open_charge_port
 
 🟠 write
 
@@ -249,9 +249,9 @@ Open the charging port door, ready to plug in. EVs and plug-in hybrids with a mo
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### close_charge_port
+### bluelink_close_charge_port
 
 🟠 write
 
@@ -260,9 +260,9 @@ Close the charging port door. EVs and plug-in hybrids with a motorised port door
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### set_charging_schedule
+### bluelink_set_charging_schedule
 
 🟠 write
 
@@ -275,9 +275,9 @@ Change the car's scheduled (off-peak) charging: on or off, and the off-peak wind
 | `off_peak_end` | string |  |  | 24-hour local time, HH:MM. Leave out to keep it as is. |
 | `off_peak_only` | boolean |  |  | Charge only in the off-peak window (true), or prefer it but charge outside it when needed (false). Leave out to keep it as is. |
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### set_departure_schedule
+### bluelink_set_departure_schedule
 
 🟠 write
 
@@ -293,7 +293,7 @@ Change one of the car's two departure times: when it repeats, and whether to pre
 | `temperature` | number |  |  | Cabin temperature for the departure, 17-27 °C in 0.5 steps. Always in °C; converted for cars set to °F. Leave out to keep it as is. |
 | `defrost` | boolean |  |  | Defrost the windscreen. Leave out to keep it as is. |
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
 ## security
 
@@ -301,13 +301,13 @@ Locks, windows, hazard lights and horn.
 
 | Tool | Access | Summary |
 |---|---|---|
-| [`lock_vehicle`](#lock_vehicle) | 🟠 write | Lock the car |
-| [`unlock_vehicle`](#unlock_vehicle) | 🔴 unlock | Unlock the car |
-| [`close_windows`](#close_windows) | 🟠 write | Close the windows |
-| [`flash_hazard_lights`](#flash_hazard_lights) | 🟠 write | Flash hazard lights |
-| [`sound_horn_and_flash_lights`](#sound_horn_and_flash_lights) | 🟠 write | Sound the horn and flash the lights |
+| [`bluelink_lock_vehicle`](#bluelink_lock_vehicle) | 🟠 write | Lock the car |
+| [`bluelink_unlock_vehicle`](#bluelink_unlock_vehicle) | 🔴 unlock | Unlock the car |
+| [`bluelink_close_windows`](#bluelink_close_windows) | 🟠 write | Close the windows |
+| [`bluelink_flash_hazard_lights`](#bluelink_flash_hazard_lights) | 🟠 write | Flash hazard lights |
+| [`bluelink_sound_horn_and_flash_lights`](#bluelink_sound_horn_and_flash_lights) | 🟠 write | Sound the horn and flash the lights |
 
-### lock_vehicle
+### bluelink_lock_vehicle
 
 🟠 write
 
@@ -316,9 +316,9 @@ Lock the car's doors.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### unlock_vehicle
+### bluelink_unlock_vehicle
 
 🔴 unlock
 
@@ -327,10 +327,10 @@ Unlock the car's doors. Only do this when the user clearly asks for it. With sev
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `confirm` | string |  |  | Only needed when the MCP client can't ask the user itself (no elicitation support): the car's name or the last 6 characters of its VIN, exactly as list_vehicles or get_vehicle_status show them. Ask the user before setting it. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `confirm` | string |  |  | Only needed when the MCP client can't ask the user itself (no elicitation support): the car's name or the last 6 characters of its VIN, exactly as bluelink_list_vehicles or bluelink_get_vehicle_status show them. Ask the user before setting it. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### close_windows
+### bluelink_close_windows
 
 🟠 write
 
@@ -339,9 +339,9 @@ Close all four side windows, e.g. when the user left one open and rain is coming
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### flash_hazard_lights
+### bluelink_flash_hazard_lights
 
 🟠 write
 
@@ -350,15 +350,15 @@ Flash the hazard lights briefly, e.g. to find the car in a car park. Not availab
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |
 
-### sound_horn_and_flash_lights
+### bluelink_sound_horn_and_flash_lights
 
 🟠 write
 
-Sound the horn and flash the hazard lights for a short while, e.g. to find the car. It is loud and can disturb people nearby, so only do this when the user asks for the horn; to just find the car, prefer flash_hazard_lights. Not available in Canada or for Kia in the USA.
+Sound the horn and flash the hazard lights for a short while, e.g. to find the car. It is loud and can disturb people nearby, so only do this when the user asks for the horn; to just find the car, prefer bluelink_flash_hazard_lights. Not available in Canada or for Kia in the USA.
 
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `vehicle` | string |  |  | Vehicle name, VIN or ID. Optional if the account has one vehicle. |
-| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with get_command_status. |
+| `wait` | boolean |  | `true` | Wait (up to ~60 s) for the car to confirm the command. If it hasn't by then, the status is pending: check later with bluelink_get_command_status. |

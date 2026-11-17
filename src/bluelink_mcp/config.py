@@ -104,9 +104,12 @@ def log_level(env: dict[str, str]) -> tuple[int, int]:
     return level, logging.DEBUG if level == logging.DEBUG else logging.CRITICAL + 1
 
 
-def _default_state_dir() -> Path:
-    base = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local" / "state")
-    return Path(base) / "bluelink-mcp"
+def _default_token_file(env: dict[str, str]) -> Path:
+    """$XDG_CONFIG_HOME/bluelink-mcp/tokens.json, or ~/.config/bluelink-mcp/tokens.json."""
+    if env.get("XDG_CONFIG_HOME"):
+        return Path(env["XDG_CONFIG_HOME"]) / "bluelink-mcp" / "tokens.json"
+    home = env.get("HOME") or str(Path.home())
+    return Path(home) / ".config" / "bluelink-mcp" / "tokens.json"
 
 
 @dataclass(frozen=True)
@@ -155,7 +158,7 @@ class Config:
 
         token_raw = env.get("BLUELINK_TOKEN_FILE")
         if token_raw is None:
-            token_file: Path | None = _default_state_dir() / "token.json"
+            token_file: Path | None = _default_token_file(env)
         else:
             # An empty value turns token caching off.
             token_file = Path(token_raw).expanduser() if token_raw.strip() else None

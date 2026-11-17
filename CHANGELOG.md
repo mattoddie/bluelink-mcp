@@ -6,6 +6,13 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** every tool name now starts with `bluelink_`, so the names stay distinct next to other MCP servers: `list_vehicles` → `bluelink_list_vehicles`, `get_vehicle_status` → `bluelink_get_vehicle_status`, `refresh_vehicle_status` → `bluelink_refresh_vehicle_status`, `get_vehicle_location` → `bluelink_get_vehicle_location`, `get_trips` → `bluelink_get_trips`, `get_energy_usage` → `bluelink_get_energy_usage`, `get_command_status` → `bluelink_get_command_status`, `lock_vehicle` → `bluelink_lock_vehicle`, `unlock_vehicle` → `bluelink_unlock_vehicle`, `start_climate` → `bluelink_start_climate`, `stop_climate` → `bluelink_stop_climate`, `start_charging` → `bluelink_start_charging`, `stop_charging` → `bluelink_stop_charging`, `set_charge_limits` → `bluelink_set_charge_limits`, `start_battery_conditioning` → `bluelink_start_battery_conditioning`, `stop_battery_conditioning` → `bluelink_stop_battery_conditioning`, `open_charge_port` → `bluelink_open_charge_port`, `close_charge_port` → `bluelink_close_charge_port`, `set_charging_current` → `bluelink_set_charging_current`, `set_charging_schedule` → `bluelink_set_charging_schedule`, `set_departure_schedule` → `bluelink_set_departure_schedule`, `close_windows` → `bluelink_close_windows`, `flash_hazard_lights` → `bluelink_flash_hazard_lights`, `sound_horn_and_flash_lights` → `bluelink_sound_horn_and_flash_lights`.
+- **Breaking:** `bluelink_get_energy_usage` takes `hours` (a number, default 168, up to 744) instead of `days`. The car reports whole days, so it is rounded up to whole days.
+- **Breaking:** `bluelink_list_vehicles` and `bluelink_get_energy_usage` return `{total, returned, items}` instead of a bare list.
+- **Breaking:** the default `BLUELINK_TOKEN_FILE` is now `$XDG_CONFIG_HOME/bluelink-mcp/tokens.json` (falling back to `~/.config/bluelink-mcp/tokens.json`) instead of `$XDG_STATE_HOME/bluelink-mcp/token.json`, and `/data/tokens.json` instead of `/data/token.json` in the Docker image. The old file isn't read, so the server logs in once more after upgrading; delete the old file.
+
 ## [0.5.0] - 2026-11-15
 
 This release applies a code review and adds nine command tools, for 24 tools in all (7 read, 16 write and 1 unlock). **It has breaking changes**: check the **Breaking:** entries under Changed, especially the `Host`/`Origin` check on the HTTP transport.

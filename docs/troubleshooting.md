@@ -33,7 +33,7 @@ After Bluelink rejects a login or asks for a one-time passcode, the server waits
 1. **Check the app.** Log out of the official app and back in with the same email and password. If the app asks you to accept new terms, verify your email or set a new password, do that, then try again.
 2. **Check the region.** It must match where the account was created. In Europe, if `europe` keeps failing, try `europe-cci`, which is the backend some newer Hyundais and Kias use. For a Kia, also check `BLUELINK_BRAND=kia`: a Kia Connect login won't work against Hyundai's service.
 3. **Too many attempts.** Bluelink temporarily blocks accounts after repeated logins, and the app may then fail too. Wait an hour, make sure the token cache is working (see below), and try again.
-4. **Changed password.** Update `BLUELINK_PASSWORD` (and `BLUELINK_PIN` if that changed) and restart the server. The cache always uses the configured password, and is deleted automatically when a login is rejected. To clear it by hand: in Docker, `docker compose exec bluelink-mcp rm /data/token.json`; otherwise `rm ~/.local/state/bluelink-mcp/token.json`.
+4. **Changed password.** Update `BLUELINK_PASSWORD` (and `BLUELINK_PIN` if that changed) and restart the server. The cache always uses the configured password, and is deleted automatically when a login is rejected. To clear it by hand: in Docker, `docker compose exec bluelink-mcp rm /data/tokens.json`; otherwise `rm ~/.config/bluelink-mcp/tokens.json`.
 5. **One-time passcode.** *"Bluelink asked for a one-time passcode"* means the account needs an OTP, which the server can't enter. Log in once in the app on a trusted device, then try again. The server then waits `BLUELINK_LOGIN_RETRY_MINUTES` before trying again, like after any rejected login.
 
 If logins worked before and stopped for everyone at the same time, Hyundai or Kia has probably changed its API. Update to the latest image. If that doesn't help, check the [library's issues](https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api/issues).
@@ -53,10 +53,10 @@ If logins worked before and stopped for everyone at the same time, Hyundai or Ki
 | `timeout` | Bluelink gave up waiting for the car, often because of poor mobile signal in a car park. The command may still have happened, so check the status in a minute before retrying. |
 | `pending` | The car hadn't answered within about 60 seconds. Ask the assistant to check the command later; it has the `action_id`. |
 | PIN errors | Set `BLUELINK_PIN` to the PIN you use in the app. |
-| *"... was sent to ... s ago"* | The same command was sent to that car less than `BLUELINK_MIN_COMMAND_SECONDS` (60) ago. Wait, or check the earlier command with `get_command_status`. |
+| *"... was sent to ... s ago"* | The same command was sent to that car less than `BLUELINK_MIN_COMMAND_SECONDS` (60) ago. Wait, or check the earlier command with `bluelink_get_command_status`. |
 | *"Not unlocked: this needs confirmation"* | Your client doesn't support MCP elicitation, so the assistant must confirm with you and call again with `confirm` set to the car's name or the last 6 characters of its VIN. See [Unlocking](usage.md#unlocking). |
-| *"No vehicle matches"* when unlocking | With several cars, `unlock_vehicle` needs the car's exact name, VIN or ID. |
-| *"Unknown tool"* or the tool isn't listed | Command tools are only registered with `BLUELINK_ALLOW_WRITES=true`, unlock with `BLUELINK_ALLOW_UNLOCK=true`, and `get_vehicle_location` with `BLUELINK_ALLOW_LOCATION=true`. Restart the server and reconnect the client after changing settings. |
+| *"No vehicle matches"* when unlocking | With several cars, `bluelink_unlock_vehicle` needs the car's exact name, VIN or ID. |
+| *"Unknown tool"* or the tool isn't listed | Command tools are only registered with `BLUELINK_ALLOW_WRITES=true`, unlock with `BLUELINK_ALLOW_UNLOCK=true`, and `bluelink_get_vehicle_location` with `BLUELINK_ALLOW_LOCATION=true`. Restart the server and reconnect the client after changing settings. |
 
 ## Client connection problems
 

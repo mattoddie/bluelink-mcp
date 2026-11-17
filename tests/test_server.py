@@ -12,6 +12,7 @@ from hyundai_kia_connect_api.ApiImpl import ApiImpl
 from hyundai_kia_connect_api.const import ORDER_STATUS
 from hyundai_kia_connect_api.exceptions import APIError, AuthenticationError, AuthenticationOTPRequired
 from hyundai_kia_connect_api.Token import Token
+from hyundai_kia_connect_api.Vehicle import DailyDrivingStats
 from mcp.server.mcpserver.exceptions import ToolError
 
 from bluelink_mcp import __version__
@@ -89,7 +90,7 @@ ENV = {"BLUELINK_USERNAME": "me@example.com", "BLUELINK_PASSWORD": "secret", "BL
 
 def make(tmp_path, factory=FakeManager, client_kwargs=None, **extra):
     FakeManager.instances.clear()
-    env = {**ENV, "BLUELINK_TOKEN_FILE": str(tmp_path / "token.json"), **extra}
+    env = {**ENV, "BLUELINK_TOKEN_FILE": str(tmp_path / "tokens.json"), **extra}
     config = Config.from_env(env)
     # Commands poll for confirmation; don't make the tests wait between checks.
     client_kwargs = {"poll_seconds": 0, **(client_kwargs or {})}
@@ -121,24 +122,37 @@ def test_config_rejects_unlock_without_writes():
         Config.from_env({**ENV, "BLUELINK_ALLOW_UNLOCK": "true"})
 
 
+def test_token_cache_defaults_to_xdg_config_home(tmp_path):
+    config = Config.from_env({**ENV, "XDG_CONFIG_HOME": str(tmp_path / "cfg"), "HOME": "/nowhere"})
+    assert config.token_file == tmp_path / "cfg" / "bluelink-mcp" / "tokens.json"
+    config = Config.from_env({**ENV, "HOME": str(tmp_path)})
+    assert config.token_file == tmp_path / ".config" / "bluelink-mcp" / "tokens.json"
+    assert Config.from_env({**ENV, "BLUELINK_TOKEN_FILE": ""}).token_file is None
+
+
 def test_read_only_server_has_no_command_tools(tmp_path):
     server, _ = make(tmp_path)
     names = tool_names(server)
-    assert "get_vehicle_status" in names
-    assert not names & {"lock_vehicle", "unlock_vehicle", "start_climate", "start_charging"}
+    assert "bluelink_get_vehicle_status" in names
+    assert not names & {
+        "bluelink_lock_vehicle",
+        "bluelink_unlock_vehicle",
+        "bluelink_start_climate",
+        "bluelink_start_charging",
+    }
 
 
 def test_unlock_needs_its_own_switch(tmp_path):
     server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true")
-    assert "lock_vehicle" in tool_names(server)
-    assert "unlock_vehicle" not in tool_names(server)
+    assert "bluelink_lock_vehicle" in tool_names(server)
+    assert "bluelink_unlock_vehicle" not in tool_names(server)
     server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true")
-    assert "unlock_vehicle" in tool_names(server)
+    assert "bluelink_unlock_vehicle" in tool_names(server)
 
 
 def test_status_and_token_cache(tmp_path):
     server, config = make(tmp_path)
-    data, _ = call(server, "get_vehicle_status")
+    data, _ = call(server, "bluelink_get_vehicle_status")
     assert data["battery"]["ev_battery_percent"] == 80
     assert data["summary"]["locked"] is True
     # Unknown fields are dropped rather than returned as nulls.
@@ -154,36 +168,67 @@ def test_status_and_token_cache(tmp_path):
 
     # A second server reuses the cached token instead of logging in again.
     server2, _ = make(tmp_path)
-    call(server2, "list_vehicles")
+    call(server2, "bluelink_list_vehicles")
     assert ("login",) not in FakeManager.instances[-1].calls
 
 
 def test_status_is_cached_briefly(tmp_path):
     server, _ = make(tmp_path)
-    call(server, "get_vehicle_status")
-    call(server, "get_energy_usage")
+    call(server, "bluelink_get_vehicle_status")
+    call(server, "bluelink_get_energy_usage")
     assert FakeManager.instances[-1].calls.count(("cached", "v1")) == 1
+
+
+def test_list_vehicles_shape(tmp_path):
+    server, _ = make(tmp_path)
+    data, _ = call(server, "bluelink_list_vehicles")
+    assert data["total"] == data["returned"] == 1
+    assert data["items"][0]["name"] == "Santa Fe"
+
+
+class EnergyManager(FakeManager):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.vehicles["v1"].daily_stats = [
+            DailyDrivingStats(date=dt.datetime(2026, 10, d), total_consumed=1000 * d) for d in range(1, 6)
+        ]
+
+
+@pytest.mark.parametrize(("hours", "days"), [(1, 1), (24, 1), (24.5, 2), (72, 3), (744, 5)])
+def test_energy_usage_rounds_hours_up_to_days(tmp_path, hours, days):
+    server, _ = make(tmp_path, factory=EnergyManager)
+    data, _ = call(server, "bluelink_get_energy_usage", {"hours": hours})
+    assert (data["total"], data["returned"]) == (5, days)
+    assert [i["total_consumed"] for i in data["items"]] == [5000 - 1000 * n for n in range(days)]
+
+
+def test_energy_usage_defaults_to_a_week(tmp_path):
+    server, _ = make(tmp_path, factory=EnergyManager)
+    data, _ = call(server, "bluelink_get_energy_usage")
+    assert data["returned"] == 5
+    with pytest.raises(ToolError):
+        call(server, "bluelink_get_energy_usage", {"hours": 0})
 
 
 def test_force_refresh_is_rate_limited(tmp_path):
     server, _ = make(tmp_path)
-    call(server, "refresh_vehicle_status")
+    call(server, "bluelink_refresh_vehicle_status")
     with pytest.raises(ToolError, match="12V battery"):
-        call(server, "refresh_vehicle_status")
+        call(server, "bluelink_refresh_vehicle_status")
     assert FakeManager.instances[-1].calls.count(("force", "v1")) == 1
 
 
 def test_location(tmp_path):
     server, _ = make(tmp_path, BLUELINK_ALLOW_LOCATION="true")
-    data, _ = call(server, "get_vehicle_location")
+    data, _ = call(server, "bluelink_get_vehicle_location")
     assert (data["latitude"], data["longitude"]) == (51.5, -0.12)
     assert "openstreetmap.org" in data["map"]
 
 
 def test_location_is_off_by_default(tmp_path):
     server, _ = make(tmp_path)
-    assert "get_vehicle_location" not in tool_names(server)
-    data, _ = call(server, "get_vehicle_status")
+    assert "bluelink_get_vehicle_location" not in tool_names(server)
+    data, _ = call(server, "bluelink_get_vehicle_status")
     assert "51.5" not in json.dumps(data)
     with pytest.raises(ConfigError, match="BLUELINK_GEOCODE needs BLUELINK_ALLOW_LOCATION"):
         Config.from_env({**ENV, "BLUELINK_GEOCODE": "true"})
@@ -201,7 +246,7 @@ def test_location_precision(tmp_path, precision, expected):
 
     extra = {"BLUELINK_LOCATION_PRECISION": precision} if precision is not None else {}
     server, _ = make(tmp_path, factory=PreciseManager, BLUELINK_ALLOW_LOCATION="true", **extra)
-    data, _ = call(server, "get_vehicle_location")
+    data, _ = call(server, "bluelink_get_vehicle_location")
     assert (data["latitude"], data["longitude"]) == expected
     assert f"mlat={expected[0]}&mlon={expected[1]}" in data["map"]
 
@@ -214,7 +259,7 @@ def test_location_precision_is_validated(precision):
 
 def test_lock_waits_for_confirmation(tmp_path):
     server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true")
-    data, _ = call(server, "lock_vehicle", {"vehicle": "santa"})
+    data, _ = call(server, "bluelink_lock_vehicle", {"vehicle": "santa"})
     assert data == {"vehicle": "Santa Fe", "action_id": "act-1", "status": "success"}
 
 
@@ -222,7 +267,7 @@ def test_start_climate_options(tmp_path):
     server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true")
     call(
         server,
-        "start_climate",
+        "bluelink_start_climate",
         {"temperature": 21.3, "heated_steering_wheel": True, "front_left_seat": "high_heat"},
     )
     _, _, options = next(c for c in FakeManager.instances[-1].calls if c[0] == "climate")
@@ -233,13 +278,13 @@ def test_start_climate_options(tmp_path):
     assert options.front_right_seat is None
 
     with pytest.raises(ToolError, match="between 14 and 30"):
-        call(server, "start_climate", {"temperature": 40})
+        call(server, "bluelink_start_climate", {"temperature": 40})
 
 
 def test_unknown_vehicle_message(tmp_path):
     server, _ = make(tmp_path)
     with pytest.raises(ToolError, match="No vehicle matches"):
-        call(server, "get_vehicle_status", {"vehicle": "ioniq"})
+        call(server, "bluelink_get_vehicle_status", {"vehicle": "ioniq"})
 
 
 # --- token cache and login -------------------------------------------------
@@ -260,7 +305,7 @@ def write_cache(config, **fields):
 def test_cached_token_gets_the_configured_password_and_pin(tmp_path):
     server, config = make(tmp_path)
     write_cache(config)
-    call(server, "list_vehicles")
+    call(server, "bluelink_list_vehicles")
     token = FakeManager.instances[-1].kwargs["token"]
     assert (token.access_token, token.password, token.pin) == ("cached", "secret", "1234")
     # A cache from an older version is rewritten without the password and PIN.
@@ -280,14 +325,14 @@ def test_failed_login_discards_cache_and_backs_off(tmp_path):
     server, config = make(tmp_path, factory=RejectingManager)
     write_cache(config)
     with pytest.raises(ToolError, match="rejected the login") as err:
-        call(server, "list_vehicles")
+        call(server, "bluelink_list_vehicles")
     assert "s3cr3t-fragment" not in str(err.value)
     assert "AuthenticationError" in str(err.value)
     assert not config.token_file.exists()
 
     # No new login attempt until the backoff is over.
     with pytest.raises(ToolError, match="waits before trying again"):
-        call(server, "list_vehicles")
+        call(server, "bluelink_list_vehicles")
     assert len(FakeManager.instances) == 1
 
 
@@ -307,10 +352,10 @@ def test_otp_request_backs_off_instead_of_logging_in_on_every_call(tmp_path):
     OTPManager.logins = 0
     server, _ = make(tmp_path, factory=OTPManager)
     with pytest.raises(ToolError, match="one-time passcode"):
-        call(server, "list_vehicles")
+        call(server, "bluelink_list_vehicles")
     for _ in range(4):
         with pytest.raises(ToolError, match="waits before trying again"):
-            call(server, "list_vehicles")
+            call(server, "bluelink_list_vehicles")
     assert OTPManager.logins == 1
 
 
@@ -325,7 +370,7 @@ def test_network_errors_during_login_do_not_back_off(tmp_path):
     write_cache(config)
     for _ in range(2):
         with pytest.raises(ToolError, match="Could not reach Bluelink to log in") as err:
-            call(server, "list_vehicles")
+            call(server, "bluelink_list_vehicles")
         assert "10.0.0.1" not in str(err.value)
     # Each call tried again, and the cached session was kept.
     assert len(FakeManager.instances) == 2
@@ -339,14 +384,14 @@ def test_other_login_errors_do_not_back_off(tmp_path):
     server, _ = make(tmp_path, factory=broken)
     for _ in range(2):
         with pytest.raises(ToolError, match="Could not log in.*APIError"):
-            call(server, "list_vehicles")
+            call(server, "bluelink_list_vehicles")
 
 
 def test_login_backoff_can_be_turned_off(tmp_path):
     server, _ = make(tmp_path, factory=RejectingManager, BLUELINK_LOGIN_RETRY_MINUTES="0")
     for _ in range(2):
         with pytest.raises(ToolError, match="rejected the login"):
-            call(server, "list_vehicles")
+            call(server, "bluelink_list_vehicles")
     assert len(FakeManager.instances) == 2
 
 
@@ -362,7 +407,7 @@ def test_login_backoff_can_be_turned_off(tmp_path):
 def test_bad_token_cache_is_ignored(tmp_path, content):
     server, config = make(tmp_path)
     config.token_file.write_text(content)
-    call(server, "list_vehicles")
+    call(server, "bluelink_list_vehicles")
     assert FakeManager.instances[-1].kwargs["token"] is None
     assert ("login",) in FakeManager.instances[-1].calls
 
@@ -373,13 +418,13 @@ def test_manager_construction_errors_are_wrapped(tmp_path):
 
     server, _ = make(tmp_path, factory=broken)
     with pytest.raises(ToolError, match="Could not log in.*APIError"):
-        call(server, "list_vehicles")
+        call(server, "bluelink_list_vehicles")
 
 
 def test_token_cache_leaves_no_temporary_files(tmp_path):
     server, config = make(tmp_path)
-    call(server, "list_vehicles")
-    assert [p.name for p in tmp_path.iterdir()] == ["token.json"]
+    call(server, "bluelink_list_vehicles")
+    assert [p.name for p in tmp_path.iterdir()] == ["tokens.json"]
     assert stat.S_IMODE(os.stat(config.token_file).st_mode) == 0o600
 
 
@@ -404,7 +449,7 @@ class FailingManager(FakeManager):
 def test_library_errors_are_not_passed_through(tmp_path):
     server, _ = make(tmp_path, factory=FailingManager)
     with pytest.raises(ToolError) as err:
-        call(server, "get_vehicle_status")
+        call(server, "bluelink_get_vehicle_status")
     assert str(err.value).endswith("Bluelink request failed: Bluelink returned an error. (APIError)")
     assert "12345" not in str(err.value)
 
@@ -412,9 +457,9 @@ def test_library_errors_are_not_passed_through(tmp_path):
 def test_failed_force_refresh_is_rate_limited_too(tmp_path):
     server, _ = make(tmp_path, factory=FailingManager)
     with pytest.raises(ToolError, match="APIError"):
-        call(server, "refresh_vehicle_status")
+        call(server, "bluelink_refresh_vehicle_status")
     with pytest.raises(ToolError, match="12V battery"):
-        call(server, "refresh_vehicle_status")
+        call(server, "bluelink_refresh_vehicle_status")
     assert FakeManager.instances[-1].calls.count(("force", "v1")) == 1
 
 
@@ -449,14 +494,16 @@ def test_other_tools_run_while_a_command_waits(tmp_path):
 
     async def go():
         async def lock():
-            results["lock"] = (await server.call_tool("lock_vehicle", {})).structured_content
+            results["lock"] = (await server.call_tool("bluelink_lock_vehicle", {})).structured_content
 
         async with anyio.create_task_group() as tg:
             tg.start_soon(lock)
             while not FakeManager.instances or ("lock", "v1") not in FakeManager.instances[-1].calls:
                 await anyio.sleep(0.01)
             with anyio.fail_after(5):
-                results["status"] = (await server.call_tool("get_vehicle_status", {})).structured_content
+                results["status"] = (
+                    await server.call_tool("bluelink_get_vehicle_status", {})
+                ).structured_content
 
     anyio.run(go)
     assert results["status"]["summary"]["locked"] is True
@@ -470,7 +517,7 @@ def test_command_returns_pending_when_the_car_is_slow(tmp_path):
         client_kwargs={"command_wait_seconds": 0.05, "poll_seconds": 0.01},
         BLUELINK_ALLOW_WRITES="true",
     )
-    data, _ = call(server, "lock_vehicle")
+    data, _ = call(server, "bluelink_lock_vehicle")
     assert data == {"vehicle": "Santa Fe", "action_id": "act-1", "status": "pending"}
 
 
@@ -480,7 +527,7 @@ def test_start_climate_in_usa_sends_fahrenheit(tmp_path):
     )
     sent = []
     for celsius in (21, 14, 30):
-        data, _ = call(server, "start_climate", {"temperature": celsius})
+        data, _ = call(server, "bluelink_start_climate", {"temperature": celsius})
         sent.append(data["temperature_sent"])
     temps = [c[2].set_temp for c in FakeManager.instances[-1].calls if c[0] == "climate"]
     assert temps == [70, 62, 82]
@@ -489,11 +536,11 @@ def test_start_climate_in_usa_sends_fahrenheit(tmp_path):
 
 def test_start_climate_in_canada_respects_older_cars(tmp_path):
     server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_REGION="canada")
-    call(server, "list_vehicles")
+    call(server, "bluelink_list_vehicles")
     FakeManager.instances[-1].vehicles["v1"].year = 2019
     with pytest.raises(ToolError, match="lowest temperature is 16"):
-        call(server, "start_climate", {"temperature": 15})
-    call(server, "start_climate", {"temperature": 16})
+        call(server, "bluelink_start_climate", {"temperature": 15})
+    call(server, "bluelink_start_climate", {"temperature": 16})
     _, _, options = next(c for c in FakeManager.instances[-1].calls if c[0] == "climate")
     assert options.set_temp == 16
 
@@ -509,14 +556,14 @@ class TwoCarManager(FakeManager):
 
 def test_blank_vehicle_means_the_only_car(tmp_path):
     server, _ = make(tmp_path)
-    data, _ = call(server, "get_vehicle_status", {"vehicle": "   "})
+    data, _ = call(server, "bluelink_get_vehicle_status", {"vehicle": "   "})
     assert data["vehicle"]["id"] == "v1"
 
 
 def test_blank_vehicle_is_ambiguous_with_several_cars(tmp_path):
     server, _ = make(tmp_path, factory=TwoCarManager)
     with pytest.raises(ToolError, match="say which one"):
-        call(server, "get_vehicle_status", {"vehicle": " "})
+        call(server, "bluelink_get_vehicle_status", {"vehicle": " "})
 
 
 def test_unlock_needs_an_exact_vehicle_with_several_cars(tmp_path):
@@ -524,15 +571,15 @@ def test_unlock_needs_an_exact_vehicle_with_several_cars(tmp_path):
         tmp_path, factory=TwoCarManager, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true"
     )
     # Part of a name is fine for locking...
-    data, _ = call(server, "lock_vehicle", {"vehicle": "santa"})
+    data, _ = call(server, "bluelink_lock_vehicle", {"vehicle": "santa"})
     assert data["vehicle"] == "Santa Fe"
     # ...but not for unlocking.
     with pytest.raises(ToolError, match="exact name"):
-        call(server, "unlock_vehicle", {"vehicle": "santa"})
+        call(server, "bluelink_unlock_vehicle", {"vehicle": "santa"})
     assert not any(c[0] == "unlock" for c in FakeManager.instances[-1].calls)
-    data, _ = call(server, "unlock_vehicle", {"vehicle": "santa fe", "confirm": "Santa Fe"})
+    data, _ = call(server, "bluelink_unlock_vehicle", {"vehicle": "santa fe", "confirm": "Santa Fe"})
     assert (data["vehicle"], data["status"]) == ("Santa Fe", "success")
-    data, _ = call(server, "unlock_vehicle", {"vehicle": "KMHABC", "confirm": "KMHABC"})
+    data, _ = call(server, "bluelink_unlock_vehicle", {"vehicle": "KMHABC", "confirm": "KMHABC"})
     assert data["vehicle"] == "Ioniq 5"
 
 
@@ -543,7 +590,7 @@ def test_fuel_range_has_its_unit(tmp_path):
             self.vehicles["v1"].fuel_driving_range = (420, "km")
 
     server, _ = make(tmp_path, factory=PetrolManager)
-    data, _ = call(server, "get_vehicle_status")
+    data, _ = call(server, "bluelink_get_vehicle_status")
     assert data["fuel"]["fuel_range"] == {"value": 420, "unit": "km"}
 
 
@@ -854,8 +901,8 @@ def test_min_refresh_minutes_must_be_positive(minutes):
 def test_refresh_is_not_marked_read_only(tmp_path):
     server, _ = make(tmp_path)
     tools = {t.name: t for t in anyio.run(server.list_tools)}
-    assert tools["refresh_vehicle_status"].annotations.read_only_hint is False
-    assert tools["get_vehicle_status"].annotations.read_only_hint is True
+    assert tools["bluelink_refresh_vehicle_status"].annotations.read_only_hint is False
+    assert tools["bluelink_get_vehicle_status"].annotations.read_only_hint is True
 
 
 # --- MCP Bundle settings ------------------------------------------------------------
@@ -906,32 +953,36 @@ def test_audit_log_records_commands_only(tmp_path):
     assert stat.S_IMODE(os.stat(log).st_mode) == 0o600
     assert log.read_text() == ""
 
-    call(server, "get_vehicle_status")
-    call(server, "list_vehicles")
+    call(server, "bluelink_get_vehicle_status")
+    call(server, "bluelink_list_vehicles")
     assert log.read_text() == ""
 
-    call(server, "lock_vehicle", {"wait": False})
-    call(server, "refresh_vehicle_status")
+    call(server, "bluelink_lock_vehicle", {"wait": False})
+    call(server, "bluelink_refresh_vehicle_status")
     [lock, refresh] = audit_lines(log)
-    assert lock["tool"] == "lock_vehicle"
+    assert lock["tool"] == "bluelink_lock_vehicle"
     assert lock["arguments"] == {"vehicle": None, "wait": False}
     assert lock["result"] == {"vehicle": "Santa Fe", "action_id": "act-1", "status": "pending"}
     assert lock["outcome"] == "ok"
     assert lock["time"].endswith("Z")
     # A status result is reduced to the car's name: no VIN, no location, nothing else.
-    assert refresh == {**refresh, "tool": "refresh_vehicle_status", "result": {"vehicle": "Santa Fe"}}
+    assert refresh == {
+        **refresh,
+        "tool": "bluelink_refresh_vehicle_status",
+        "result": {"vehicle": "Santa Fe"},
+    }
     assert "KMHXYZ" not in log.read_text() and "51.5" not in log.read_text()
 
 
 def test_audit_log_records_failures(tmp_path):
     log = tmp_path / "audit.jsonl"
     server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_AUDIT_LOG=str(log))
-    call(server, "lock_vehicle", {"wait": False})
+    call(server, "bluelink_lock_vehicle", {"wait": False})
     with pytest.raises(ToolError):
-        call(server, "lock_vehicle", {"wait": False})
+        call(server, "bluelink_lock_vehicle", {"wait": False})
     entry = audit_lines(log)[-1]
     assert entry["outcome"] == "error"
-    assert "lock_vehicle was sent" in entry["error"]
+    assert "bluelink_lock_vehicle was sent" in entry["error"]
 
 
 def test_audit_log_redacts_unlock_confirmation_and_vins(tmp_path):
@@ -943,8 +994,8 @@ def test_audit_log_redacts_unlock_confirmation_and_vins(tmp_path):
         BLUELINK_AUDIT_LOG=str(log),
     )
     with pytest.raises(ToolError):
-        call(server, "unlock_vehicle", {"vehicle": "KMHXYZ12345678901", "confirm": "wrong"})
-    call(server, "unlock_vehicle", {"confirm": "Santa Fe", "wait": False})
+        call(server, "bluelink_unlock_vehicle", {"vehicle": "KMHXYZ12345678901", "confirm": "wrong"})
+    call(server, "bluelink_unlock_vehicle", {"confirm": "Santa Fe", "wait": False})
     refused, unlocked = audit_lines(log)
     assert refused["outcome"] == "error"
     assert refused["arguments"]["vehicle"] == "…678901"
@@ -956,9 +1007,9 @@ def test_audit_log_redacts_unlock_confirmation_and_vins(tmp_path):
 
 def test_audit_log_to_stderr(tmp_path, capsys):
     server, _ = make(tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_AUDIT_LOG="stderr")
-    call(server, "lock_vehicle", {"wait": False})
+    call(server, "bluelink_lock_vehicle", {"wait": False})
     entry = json.loads(capsys.readouterr().err.strip().splitlines()[-1])
-    assert entry["tool"] == "lock_vehicle"
+    assert entry["tool"] == "bluelink_lock_vehicle"
 
 
 def test_audit_log_needs_a_writable_directory(tmp_path):
@@ -1006,14 +1057,14 @@ class ReconnectingManager(FakeManager):
 
 def test_status_after_a_reconnect_reads_the_cache_again(tmp_path, monkeypatch):
     server, _ = make(tmp_path, factory=ReconnectingManager)
-    first, _ = call(server, "get_vehicle_status")
+    first, _ = call(server, "bluelink_get_vehicle_status")
     assert first["battery"]["ev_battery_percent"] == 80
     # Force the next call to check the session, and make that check fail.
     monkeypatch.setattr(client_module, "TOKEN_CHECK_SECONDS", 0)
     ReconnectingManager.fail_next = True
     with pytest.raises(ToolError):
-        call(server, "get_vehicle_status")
-    again, _ = call(server, "get_vehicle_status")
+        call(server, "bluelink_get_vehicle_status")
+    again, _ = call(server, "bluelink_get_vehicle_status")
     assert len(FakeManager.instances) == 2
     assert again["summary"]["locked"] is True
     assert again["battery"]["ev_battery_percent"] == 80
@@ -1024,9 +1075,9 @@ def test_session_is_not_checked_on_every_call(tmp_path, monkeypatch):
 
     statuses = iter([ORDER_STATUS.PENDING, ORDER_STATUS.PENDING, ORDER_STATUS.SUCCESS])
     monkeypatch.setattr(ReconnectingManager, "check_action_status", lambda *a, **k: next(statuses))
-    call(server, "get_vehicle_status")
-    call(server, "list_vehicles")
-    data, _ = call(server, "lock_vehicle")
+    call(server, "bluelink_get_vehicle_status")
+    call(server, "bluelink_list_vehicles")
+    data, _ = call(server, "bluelink_lock_vehicle")
     assert data["status"] == "success"
     manager = FakeManager.instances[-1]
     assert manager.calls.count(("check",)) == 1
@@ -1034,13 +1085,13 @@ def test_session_is_not_checked_on_every_call(tmp_path, monkeypatch):
     # A failed request means the session gets checked before the next one.
     monkeypatch.setattr(ReconnectingManager, "force_refresh_vehicle_state", lambda *a: 1 / 0)
     with pytest.raises(ToolError):
-        call(server, "refresh_vehicle_status")
-    call(server, "list_vehicles")
+        call(server, "bluelink_refresh_vehicle_status")
+    call(server, "bluelink_list_vehicles")
     assert manager.calls.count(("check",)) == 2
 
     # And again once the check interval has passed.
     monkeypatch.setattr(client_module, "TOKEN_CHECK_SECONDS", 0)
-    call(server, "list_vehicles")
+    call(server, "bluelink_list_vehicles")
     assert manager.calls.count(("check",)) == 3
 
 
@@ -1051,8 +1102,8 @@ def test_session_is_checked_when_the_token_is_about_to_expire(tmp_path):
             self.token.valid_until = dt.datetime.now(dt.UTC) + dt.timedelta(seconds=30)
 
     server, _ = make(tmp_path, factory=ExpiringManager)
-    call(server, "list_vehicles")
-    call(server, "list_vehicles")
+    call(server, "bluelink_list_vehicles")
+    call(server, "bluelink_list_vehicles")
     assert FakeManager.instances[-1].calls.count(("check",)) == 2
 
 
@@ -1072,7 +1123,7 @@ def test_status_values_have_units(tmp_path):
             car.ev_first_departure_climate_temperature = (70, "°F")
 
     server, _ = make(tmp_path, factory=USManager)
-    data, _ = call(server, "get_vehicle_status")
+    data, _ = call(server, "bluelink_get_vehicle_status")
     assert data["summary"]["outside_temperature"] == {"value": 68.0, "unit": "°F"}
     assert data["climate"]["set_temperature"] == {"value": 72.0, "unit": "°F"}
     assert data["battery"]["ev_battery_temperature_min"] == {"value": 59, "unit": "°F"}
@@ -1086,9 +1137,10 @@ def test_status_values_have_units(tmp_path):
 
 
 def test_redact_text_shortens_vins_only():
-    text = "No vehicle matches 'KMHXYZ12345678901'. Use list_vehicles (ServiceTemporaryUnavailable)."
+    text = "No vehicle matches 'KMHXYZ12345678901'. Use bluelink_list_vehicles (ServiceTemporaryUnavailable)."
     assert (
-        redact_text(text) == "No vehicle matches '…678901'. Use list_vehicles (ServiceTemporaryUnavailable)."
+        redact_text(text)
+        == "No vehicle matches '…678901'. Use bluelink_list_vehicles (ServiceTemporaryUnavailable)."
     )
     assert redact_text("abcdefghijklmnopq") == "abcdefghijklmnopq"
 
@@ -1096,7 +1148,7 @@ def test_redact_text_shortens_vins_only():
 def test_vehicle_errors_do_not_repeat_a_full_vin(tmp_path):
     server, _ = make(tmp_path)
     with pytest.raises(ToolError) as info:
-        call(server, "get_vehicle_status", {"vehicle": "KMHXYZ12345678901"})
+        call(server, "bluelink_get_vehicle_status", {"vehicle": "KMHXYZ12345678901"})
     assert "KMHXYZ12345678901" not in str(info.value)
     assert "…678901" in str(info.value)
 
@@ -1108,9 +1160,9 @@ def test_audit_log_records_unlocks_refused_before_asking(tmp_path, monkeypatch):
         tmp_path, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true", BLUELINK_AUDIT_LOG=str(log)
     )
     with pytest.raises(ToolError):
-        call(server, "unlock_vehicle", {"vehicle": "KMHXYZ12345678901"})
+        call(server, "bluelink_unlock_vehicle", {"vehicle": "KMHXYZ12345678901"})
     [entry] = audit_lines(log)
-    assert entry["tool"] == "unlock_vehicle"
+    assert entry["tool"] == "bluelink_unlock_vehicle"
     assert entry["outcome"] == "error"
     assert entry["arguments"] == {"vehicle": "…678901"}
     assert "No vehicle matches" in entry["error"]
@@ -1119,7 +1171,7 @@ def test_audit_log_records_unlocks_refused_before_asking(tmp_path, monkeypatch):
 
 
 def test_status_is_formatted_under_the_lock(tmp_path):
-    config = Config.from_env({**ENV, "BLUELINK_TOKEN_FILE": str(tmp_path / "token.json")})
+    config = Config.from_env({**ENV, "BLUELINK_TOKEN_FILE": str(tmp_path / "tokens.json")})
     client = BluelinkClient(config, manager_factory=FakeManager)
     assert client.status(None, lambda v: client._lock._is_owned())
     assert client.force_refresh(None, lambda v: client._lock._is_owned())
@@ -1130,12 +1182,14 @@ def test_status_is_formatted_under_the_lock(tmp_path):
 def test_action_id_is_validated(tmp_path, action_id):
     server, _ = make(tmp_path)
     with pytest.raises(ToolError):
-        call(server, "get_command_status", {"action_id": action_id})
+        call(server, "bluelink_get_command_status", {"action_id": action_id})
 
 
 def test_action_id_accepts_real_looking_ids(tmp_path):
     server, _ = make(tmp_path)
-    data, _ = call(server, "get_command_status", {"action_id": "3f2b1c9e-7a4d-4e0f-9b8a-1c2d3e4f5a6b"})
+    data, _ = call(
+        server, "bluelink_get_command_status", {"action_id": "3f2b1c9e-7a4d-4e0f-9b8a-1c2d3e4f5a6b"}
+    )
     assert data["status"] == "success"
 
 
@@ -1158,7 +1212,7 @@ def test_trips_default_to_today_in_the_cars_time_zone(tmp_path):
             self.vehicles["v1"].timezone = zone
 
     server, _ = make(tmp_path, factory=FarEastManager)
-    data, _ = call(server, "get_trips")
+    data, _ = call(server, "bluelink_get_trips")
     today = dt.datetime.now(zone).date()
     assert data["date"] == today.isoformat()
     assert ("day_trips", "v1", today.strftime("%Y%m%d")) in FakeManager.instances[-1].calls
@@ -1166,12 +1220,12 @@ def test_trips_default_to_today_in_the_cars_time_zone(tmp_path):
 
 def test_trips_for_a_day_and_a_month(tmp_path):
     server, _ = make(tmp_path, factory=TripManager)
-    assert call(server, "get_trips", {"date": "2026-10-15"})[0]["date"] == "2026-10-15"
-    assert call(server, "get_trips", {"date": "2026-10"})[0]["date"] == "2026-10"
+    assert call(server, "bluelink_get_trips", {"date": "2026-10-15"})[0]["date"] == "2026-10-15"
+    assert call(server, "bluelink_get_trips", {"date": "2026-10"})[0]["date"] == "2026-10"
     calls = FakeManager.instances[-1].calls
     assert ("day_trips", "v1", "20261015") in calls and ("month_trips", "v1", "202610") in calls
     with pytest.raises(ToolError, match="YYYY-MM-DD"):
-        call(server, "get_trips", {"date": "15/10/2026"})
+        call(server, "bluelink_get_trips", {"date": "15/10/2026"})
 
 
 # --- horn and lights ---------------------------------------------------------
@@ -1189,28 +1243,28 @@ class HornManager(FakeManager):
 
 def test_horn_and_lights_are_write_tools(tmp_path):
     server, _ = make(tmp_path, factory=HornManager)
-    assert not {"flash_hazard_lights", "sound_horn_and_flash_lights"} & tool_names(server)
+    assert not {"bluelink_flash_hazard_lights", "bluelink_sound_horn_and_flash_lights"} & tool_names(server)
     server, _ = make(tmp_path, factory=HornManager, BLUELINK_ALLOW_WRITES="true")
     tools = {t.name: t for t in anyio.run(server.list_tools)}
-    assert tools["sound_horn_and_flash_lights"].annotations.read_only_hint is False
-    assert tools["sound_horn_and_flash_lights"].annotations.destructive_hint is False
+    assert tools["bluelink_sound_horn_and_flash_lights"].annotations.read_only_hint is False
+    assert tools["bluelink_sound_horn_and_flash_lights"].annotations.destructive_hint is False
 
 
 def test_sound_horn_is_sent_and_rate_limited(tmp_path):
     log = tmp_path / "audit.jsonl"
     server, _ = make(tmp_path, factory=HornManager, BLUELINK_ALLOW_WRITES="true", BLUELINK_AUDIT_LOG=str(log))
-    data, _ = call(server, "sound_horn_and_flash_lights")
+    data, _ = call(server, "bluelink_sound_horn_and_flash_lights")
     assert data == {"vehicle": "Santa Fe", "action_id": "act-horn", "status": "success"}
-    with pytest.raises(ToolError, match="sound_horn_and_flash_lights was sent"):
-        call(server, "sound_horn_and_flash_lights")
+    with pytest.raises(ToolError, match="bluelink_sound_horn_and_flash_lights was sent"):
+        call(server, "bluelink_sound_horn_and_flash_lights")
     # Its own rate limit: the lights can still be flashed.
-    call(server, "flash_hazard_lights", {"wait": False})
+    call(server, "bluelink_flash_hazard_lights", {"wait": False})
     calls = FakeManager.instances[-1].calls
     assert calls.count(("horn", "v1")) == 1 and calls.count(("lights", "v1")) == 1
     assert [e["tool"] for e in audit_lines(log)] == [
-        "sound_horn_and_flash_lights",
-        "sound_horn_and_flash_lights",
-        "flash_hazard_lights",
+        "bluelink_sound_horn_and_flash_lights",
+        "bluelink_sound_horn_and_flash_lights",
+        "bluelink_flash_hazard_lights",
     ]
 
 
@@ -1224,7 +1278,7 @@ class NoExtrasManager(HornManager):
         self.api = NoExtrasApi()
 
 
-@pytest.mark.parametrize("tool", ["flash_hazard_lights", "sound_horn_and_flash_lights"])
+@pytest.mark.parametrize("tool", ["bluelink_flash_hazard_lights", "bluelink_sound_horn_and_flash_lights"])
 def test_horn_and_lights_are_refused_where_the_region_lacks_them(tmp_path, tool):
     server, _ = make(tmp_path, factory=NoExtrasManager, BLUELINK_ALLOW_WRITES="true")
     for _ in range(2):  # refused before sending, so not rate limited either
@@ -1241,7 +1295,7 @@ def test_library_not_implemented_is_explained_and_not_rate_limited(tmp_path):
     server, _ = make(tmp_path, factory=GatedManager, BLUELINK_ALLOW_WRITES="true")
     for _ in range(2):
         with pytest.raises(ToolError, match="isn't available for this car's region or brand"):
-            call(server, "sound_horn_and_flash_lights")
+            call(server, "bluelink_sound_horn_and_flash_lights")
 
 
 # --- schedules ---------------------------------------------------------------
@@ -1283,12 +1337,14 @@ def sent_schedule(kind="schedule"):
 
 def test_schedule_tools_need_writes(tmp_path):
     server, _ = make(tmp_path, factory=ScheduleManager)
-    assert not {"set_charging_schedule", "set_departure_schedule"} & tool_names(server)
+    assert not {"bluelink_set_charging_schedule", "bluelink_set_departure_schedule"} & tool_names(server)
 
 
 def test_charging_schedule_keeps_what_is_not_changed(tmp_path):
     server, _ = make(tmp_path, factory=ScheduleManager, BLUELINK_ALLOW_WRITES="true")
-    data, _ = call(server, "set_charging_schedule", {"scheduled_charging": True, "off_peak_start": "23:15"})
+    data, _ = call(
+        server, "bluelink_set_charging_schedule", {"scheduled_charging": True, "off_peak_start": "23:15"}
+    )
     assert data["action_id"] == "act-schedule" and data["status"] == "success"
     assert data["schedule"] == {
         "scheduled_charging": True,
@@ -1313,7 +1369,7 @@ def test_departure_schedule_changes_one_slot(tmp_path):
     server, _ = make(tmp_path, factory=ScheduleManager, BLUELINK_ALLOW_WRITES="true")
     data, _ = call(
         server,
-        "set_departure_schedule",
+        "bluelink_set_departure_schedule",
         {"slot": 2, "days": ["Sat", "Sun", "Sat"], "time": "09:45", "temperature": 22.3, "wait": False},
     )
     assert data["departure"] == {
@@ -1342,7 +1398,7 @@ def test_departure_temperature_is_converted_for_fahrenheit_cars(tmp_path):
             self.vehicles["v1"].ev_first_departure_climate_temperature = (70, "°F")
 
     server, _ = make(tmp_path, factory=FahrenheitManager, BLUELINK_ALLOW_WRITES="true")
-    data, _ = call(server, "set_departure_schedule", {"slot": 1, "temperature": 21})
+    data, _ = call(server, "bluelink_set_departure_schedule", {"slot": 1, "temperature": 21})
     assert data["departure"]["temperature"] == {"value": 70, "unit": "°F"}
     assert sent_schedule().temperature_unit == 1
 
@@ -1357,26 +1413,26 @@ def test_schedule_is_refused_when_the_car_does_not_report_it(tmp_path):
     server, _ = make(tmp_path, factory=UnknownManager, BLUELINK_ALLOW_WRITES="true")
     for _ in range(2):  # refused before sending, so not rate limited
         with pytest.raises(ToolError, match="off_peak_end, departure 2 time"):
-            call(server, "set_charging_schedule", {"scheduled_charging": True})
+            call(server, "bluelink_set_charging_schedule", {"scheduled_charging": True})
     assert not [c for c in FakeManager.instances[-1].calls if c[0] == "schedule"]
     # Giving the missing value explicitly is enough for that one.
     with pytest.raises(ToolError, match="departure 2 time"):
-        call(server, "set_charging_schedule", {"off_peak_end": "06:00"})
+        call(server, "bluelink_set_charging_schedule", {"off_peak_end": "06:00"})
 
 
 def test_schedule_needs_a_change(tmp_path):
     server, _ = make(tmp_path, factory=ScheduleManager, BLUELINK_ALLOW_WRITES="true")
     with pytest.raises(ToolError, match="Nothing to change"):
-        call(server, "set_charging_schedule")
+        call(server, "bluelink_set_charging_schedule")
     with pytest.raises(ToolError, match="Nothing to change"):
-        call(server, "set_departure_schedule", {"slot": 1})
+        call(server, "bluelink_set_departure_schedule", {"slot": 1})
 
 
 @pytest.mark.parametrize("bad", ["24:00", "7:30", "07:60", "noon"])
 def test_schedule_times_are_validated(tmp_path, bad):
     server, _ = make(tmp_path, factory=ScheduleManager, BLUELINK_ALLOW_WRITES="true")
     with pytest.raises(ToolError):
-        call(server, "set_charging_schedule", {"off_peak_start": bad})
+        call(server, "bluelink_set_charging_schedule", {"off_peak_start": bad})
 
 
 class KiaCciLikeApi(ApiImpl):
@@ -1399,10 +1455,10 @@ class HyundaiCciLikeApi(KiaCciLikeApi):
 @pytest.mark.parametrize(
     ("api", "tool", "args", "kind"),
     [
-        (KiaCciLikeApi, "set_charging_schedule", {"scheduled_charging": True}, "reservation_charge"),
-        (KiaCciLikeApi, "set_departure_schedule", {"slot": 1, "enabled": False}, "reservation_hvac"),
-        (HyundaiCciLikeApi, "set_charging_schedule", {"scheduled_charging": True}, "schedule"),
-        (HyundaiCciLikeApi, "set_departure_schedule", {"slot": 1, "enabled": False}, "schedule"),
+        (KiaCciLikeApi, "bluelink_set_charging_schedule", {"scheduled_charging": True}, "reservation_charge"),
+        (KiaCciLikeApi, "bluelink_set_departure_schedule", {"slot": 1, "enabled": False}, "reservation_hvac"),
+        (HyundaiCciLikeApi, "bluelink_set_charging_schedule", {"scheduled_charging": True}, "schedule"),
+        (HyundaiCciLikeApi, "bluelink_set_departure_schedule", {"slot": 1, "enabled": False}, "schedule"),
     ],
 )
 def test_europe_cci_schedules_use_the_enabled_endpoint(tmp_path, api, tool, args, kind):
@@ -1429,7 +1485,7 @@ def test_schedules_are_refused_where_the_region_lacks_them(tmp_path):
 
     server, _ = make(tmp_path, factory=NoScheduleManager, BLUELINK_ALLOW_WRITES="true")
     with pytest.raises(ToolError, match="isn't available in this Bluelink region"):
-        call(server, "set_charging_schedule", {"scheduled_charging": True})
+        call(server, "bluelink_set_charging_schedule", {"scheduled_charging": True})
 
 
 # --- charge port and charging current ----------------------------------------
@@ -1451,15 +1507,19 @@ class PortManager(FakeManager):
 
 def test_charge_port_and_current_need_writes(tmp_path):
     server, _ = make(tmp_path, factory=PortManager)
-    assert not {"open_charge_port", "close_charge_port", "set_charging_current"} & tool_names(server)
+    assert not {
+        "bluelink_open_charge_port",
+        "bluelink_close_charge_port",
+        "bluelink_set_charging_current",
+    } & tool_names(server)
 
 
 def test_charge_port_open_and_close(tmp_path):
     server, _ = make(tmp_path, factory=PortManager, BLUELINK_ALLOW_WRITES="true")
-    assert call(server, "open_charge_port")[0]["action_id"] == "act-po"
-    assert call(server, "close_charge_port")[0]["action_id"] == "act-pc"
-    with pytest.raises(ToolError, match="open_charge_port was sent"):
-        call(server, "open_charge_port")
+    assert call(server, "bluelink_open_charge_port")[0]["action_id"] == "act-po"
+    assert call(server, "bluelink_close_charge_port")[0]["action_id"] == "act-pc"
+    with pytest.raises(ToolError, match="bluelink_open_charge_port was sent"):
+        call(server, "bluelink_open_charge_port")
     calls = FakeManager.instances[-1].calls
     assert calls.count(("port_open", "v1")) == 1 and calls.count(("port_close", "v1")) == 1
 
@@ -1467,7 +1527,7 @@ def test_charge_port_open_and_close(tmp_path):
 @pytest.mark.parametrize(("percent", "level"), [(100, 1), (90, 2), (60, 3)])
 def test_set_charging_current(tmp_path, percent, level):
     server, _ = make(tmp_path, factory=PortManager, BLUELINK_ALLOW_WRITES="true")
-    call(server, "set_charging_current", {"percent": percent, "wait": False})
+    call(server, "bluelink_set_charging_current", {"percent": percent, "wait": False})
     assert ("current", "v1", level) in FakeManager.instances[-1].calls
 
 
@@ -1475,13 +1535,17 @@ def test_set_charging_current(tmp_path, percent, level):
 def test_set_charging_current_takes_only_the_library_levels(tmp_path, percent):
     server, _ = make(tmp_path, factory=PortManager, BLUELINK_ALLOW_WRITES="true")
     with pytest.raises(ToolError):
-        call(server, "set_charging_current", {"percent": percent})
+        call(server, "bluelink_set_charging_current", {"percent": percent})
     assert not [c for m in FakeManager.instances for c in m.calls if c[0] == "current"]
 
 
 @pytest.mark.parametrize(
     ("tool", "args"),
-    [("open_charge_port", {}), ("close_charge_port", {}), ("set_charging_current", {"percent": 60})],
+    [
+        ("bluelink_open_charge_port", {}),
+        ("bluelink_close_charge_port", {}),
+        ("bluelink_set_charging_current", {"percent": 60}),
+    ],
 )
 def test_charge_port_and_current_are_refused_where_the_region_lacks_them(tmp_path, tool, args):
     class NoPortManager(PortManager):
@@ -1502,7 +1566,7 @@ def test_status_shows_the_charging_current_as_a_percentage(tmp_path):
             self.vehicles["v1"].ev_charging_current = 2
 
     server, _ = make(tmp_path, factory=CurrentManager)
-    assert call(server, "get_vehicle_status")[0]["charging"]["charging_current_percent"] == 90
+    assert call(server, "bluelink_get_vehicle_status")[0]["charging"]["charging_current_percent"] == 90
 
 
 # --- battery conditioning ----------------------------------------------------
@@ -1520,7 +1584,9 @@ class ConditioningManager(FakeManager):
 
 def test_battery_conditioning_needs_writes(tmp_path):
     server, _ = make(tmp_path, factory=ConditioningManager)
-    assert not {"start_battery_conditioning", "stop_battery_conditioning"} & tool_names(server)
+    assert not {"bluelink_start_battery_conditioning", "bluelink_stop_battery_conditioning"} & tool_names(
+        server
+    )
 
 
 def test_battery_conditioning_start_and_stop(tmp_path):
@@ -1528,16 +1594,18 @@ def test_battery_conditioning_start_and_stop(tmp_path):
     server, _ = make(
         tmp_path, factory=ConditioningManager, BLUELINK_ALLOW_WRITES="true", BLUELINK_AUDIT_LOG=str(log)
     )
-    assert call(server, "start_battery_conditioning")[0]["action_id"] == "act-bcs"
-    with pytest.raises(ToolError, match="start_battery_conditioning was sent"):
-        call(server, "start_battery_conditioning")
-    assert call(server, "stop_battery_conditioning")[0]["action_id"] == "act-bce"
+    assert call(server, "bluelink_start_battery_conditioning")[0]["action_id"] == "act-bcs"
+    with pytest.raises(ToolError, match="bluelink_start_battery_conditioning was sent"):
+        call(server, "bluelink_start_battery_conditioning")
+    assert call(server, "bluelink_stop_battery_conditioning")[0]["action_id"] == "act-bce"
     calls = FakeManager.instances[-1].calls
     assert calls.count(("conditioning_start", "v1")) == 1 and calls.count(("conditioning_stop", "v1")) == 1
     assert [e["outcome"] for e in audit_lines(log)] == ["ok", "error", "ok"]
 
 
-@pytest.mark.parametrize("tool", ["start_battery_conditioning", "stop_battery_conditioning"])
+@pytest.mark.parametrize(
+    "tool", ["bluelink_start_battery_conditioning", "bluelink_stop_battery_conditioning"]
+)
 def test_battery_conditioning_is_refused_outside_europe_cci(tmp_path, tool):
     class OldRegionManager(ConditioningManager):
         def __init__(self, **kwargs):
@@ -1575,27 +1643,27 @@ class WindowManager(FakeManager):
 
 def test_close_windows_needs_writes_and_there_is_no_open(tmp_path):
     server, _ = make(tmp_path, factory=WindowManager)
-    assert "close_windows" not in tool_names(server)
+    assert "bluelink_close_windows" not in tool_names(server)
     server, _ = make(
         tmp_path, factory=WindowManager, BLUELINK_ALLOW_WRITES="true", BLUELINK_ALLOW_UNLOCK="true"
     )
     names = tool_names(server)
-    assert "close_windows" in names
-    assert not [n for n in names if "window" in n and n != "close_windows"]
+    assert "bluelink_close_windows" in names
+    assert not [n for n in names if "window" in n and n != "bluelink_close_windows"]
 
 
 def test_close_windows_closes_all_four(tmp_path):
     from hyundai_kia_connect_api.const import WINDOW_STATE
 
     server, _ = make(tmp_path, factory=WindowManager, BLUELINK_ALLOW_WRITES="true")
-    data, _ = call(server, "close_windows")
+    data, _ = call(server, "bluelink_close_windows")
     assert data["action_id"] == "act-win"
     [options] = [c[2] for c in FakeManager.instances[-1].calls if c[0] == "windows"]
     sides = (options.front_left, options.front_right, options.back_left, options.back_right)
     assert sides == (WINDOW_STATE.CLOSED,) * 4
     assert options.rear_left_curtain is None and options.rear_right_curtain is None
-    with pytest.raises(ToolError, match="close_windows was sent"):
-        call(server, "close_windows")
+    with pytest.raises(ToolError, match="bluelink_close_windows was sent"):
+        call(server, "bluelink_close_windows")
 
 
 def test_close_windows_is_refused_where_the_region_lacks_it(tmp_path):
@@ -1606,4 +1674,4 @@ def test_close_windows_is_refused_where_the_region_lacks_it(tmp_path):
 
     server, _ = make(tmp_path, factory=NoWindowManager, BLUELINK_ALLOW_WRITES="true")
     with pytest.raises(ToolError, match="isn't available in this Bluelink region"):
-        call(server, "close_windows")
+        call(server, "bluelink_close_windows")

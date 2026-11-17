@@ -47,99 +47,99 @@
   },
   "tools": [
     {
-      "name": "close_charge_port",
+      "name": "bluelink_close_charge_port",
       "description": "Close the charging port door. EVs and plug-in hybrids with a motorised port door, in Europe, Australia, New Zealand, China and India."
     },
     {
-      "name": "close_windows",
+      "name": "bluelink_close_windows",
       "description": "Close all four side windows, e.g. when the user left one open and rain is coming. There is deliberately no tool to open them. Not every car has remote window control; not available in the USA or Canada."
     },
     {
-      "name": "flash_hazard_lights",
+      "name": "bluelink_flash_hazard_lights",
       "description": "Flash the hazard lights briefly, e.g. to find the car in a car park. Not available in Canada or for Kia in the USA."
     },
     {
-      "name": "get_command_status",
+      "name": "bluelink_get_command_status",
       "description": "Check whether an earlier remote command succeeded (pending, success, failed, timeout)."
     },
     {
-      "name": "get_energy_usage",
-      "description": "Get daily electric energy use (Wh) split into driving, climate, electronics and battery care, plus regenerated energy and distance. EVs and PHEVs in some regions."
+      "name": "bluelink_get_energy_usage",
+      "description": "Get daily electric energy use (Wh) split into driving, climate, electronics and battery care, plus regenerated energy and distance, newest day first, as {total, returned, items}. EVs and PHEVs in some regions."
     },
     {
-      "name": "get_trips",
+      "name": "bluelink_get_trips",
       "description": "Get driving history: trips for a day, or a month's summary with trip counts per day. Not every region supports this (Europe does)."
     },
     {
-      "name": "get_vehicle_location",
+      "name": "bluelink_get_vehicle_location",
       "description": "Get where the car is parked (latitude/longitude, and an address if geocoding is on)."
     },
     {
-      "name": "get_vehicle_status",
+      "name": "bluelink_get_vehicle_status",
       "description": "Get the car's last reported state: battery and fuel, range, charging, climate, locks, doors, windows, tyres, warnings and charging schedule. Does not wake the car."
     },
     {
-      "name": "list_vehicles",
-      "description": "List the vehicles on the account."
+      "name": "bluelink_list_vehicles",
+      "description": "List the vehicles on the account, as {total, returned, items}."
     },
     {
-      "name": "lock_vehicle",
+      "name": "bluelink_lock_vehicle",
       "description": "Lock the car's doors."
     },
     {
-      "name": "open_charge_port",
+      "name": "bluelink_open_charge_port",
       "description": "Open the charging port door, ready to plug in. EVs and plug-in hybrids with a motorised port door, in Europe, Australia, New Zealand, China and India."
     },
     {
-      "name": "refresh_vehicle_status",
-      "description": "Wake the car and fetch live state, then return it like get_vehicle_status. Uses a little 12V battery and API quota, so it is rate limited."
+      "name": "bluelink_refresh_vehicle_status",
+      "description": "Wake the car and fetch live state, then return it like bluelink_get_vehicle_status. Uses a little 12V battery and API quota, so it is rate limited."
     },
     {
-      "name": "set_charge_limits",
+      "name": "bluelink_set_charge_limits",
       "description": "Set the maximum charge level. Mainly for EVs; many plug-in hybrids don't support it."
     },
     {
-      "name": "set_charging_current",
+      "name": "bluelink_set_charging_current",
       "description": "Limit the current the car draws when AC charging, e.g. to go easy on a weak household socket or circuit. Recent EVs in Europe, Australia, New Zealand, China and India."
     },
     {
-      "name": "set_charging_schedule",
+      "name": "bluelink_set_charging_schedule",
       "description": "Change the car's scheduled (off-peak) charging: on or off, and the off-peak window. Settings left out keep their current values, read from the car's last reported state; the result shows the whole schedule that was sent. EVs and plug-in hybrids in Europe, Australia, New Zealand, China and India."
     },
     {
-      "name": "set_departure_schedule",
+      "name": "bluelink_set_departure_schedule",
       "description": "Change one of the car's two departure times: when it repeats, and whether to pre-condition the cabin (and charge) to be ready by then. Settings left out keep their current values, read from the car's last reported state; the result shows the departure that was sent. On some cars the climate settings are shared by both departures. EVs and plug-in hybrids in Europe, Australia, New Zealand, China and India."
     },
     {
-      "name": "sound_horn_and_flash_lights",
-      "description": "Sound the horn and flash the hazard lights for a short while, e.g. to find the car. It is loud and can disturb people nearby, so only do this when the user asks for the horn; to just find the car, prefer flash_hazard_lights. Not available in Canada or for Kia in the USA."
+      "name": "bluelink_sound_horn_and_flash_lights",
+      "description": "Sound the horn and flash the hazard lights for a short while, e.g. to find the car. It is loud and can disturb people nearby, so only do this when the user asks for the horn; to just find the car, prefer bluelink_flash_hazard_lights. Not available in Canada or for Kia in the USA."
     },
     {
-      "name": "start_battery_conditioning",
+      "name": "bluelink_start_battery_conditioning",
       "description": "Start warming (or cooling) the high-voltage battery, so it charges faster and the car has more range when it's cold. Uses energy from the battery, or from the charger when plugged in. EVs in europe-cci only."
     },
     {
-      "name": "start_charging",
+      "name": "bluelink_start_charging",
       "description": "Start charging now (the car must be plugged in). Overrides a charging schedule."
     },
     {
-      "name": "start_climate",
+      "name": "bluelink_start_climate",
       "description": "Start pre-conditioning the cabin (heating or cooling). Seat settings only apply to cars that support them. On a plug-in hybrid this runs from the high-voltage battery."
     },
     {
-      "name": "stop_battery_conditioning",
+      "name": "bluelink_stop_battery_conditioning",
       "description": "Stop conditioning the high-voltage battery. EVs in europe-cci only."
     },
     {
-      "name": "stop_charging",
+      "name": "bluelink_stop_charging",
       "description": "Stop charging."
     },
     {
-      "name": "stop_climate",
+      "name": "bluelink_stop_climate",
       "description": "Stop cabin pre-conditioning."
     },
     {
-      "name": "unlock_vehicle",
+      "name": "bluelink_unlock_vehicle",
       "description": "Unlock the car's doors. Only do this when the user clearly asks for it. With several cars on the account, give the car's exact name, VIN or ID. The server asks the user to confirm. If the client can't show that question, the call fails until `confirm` is set to the car's name or the last 6 characters of its VIN: ask the user first, and never guess or reuse an earlier answer."
     }
   ],

@@ -230,6 +230,13 @@ def vehicle_location(v: Vehicle, precision: int = 4) -> dict[str, Any]:
     )
 
 
-def daily_stats(v: Vehicle, days: int) -> list[dict[str, Any]]:
+def listing(items: list[Any], total: int | None = None) -> dict[str, Any]:
+    """A list tool's result: {total, returned, items}."""
+    return {"total": len(items) if total is None else total, "returned": len(items), "items": items}
+
+
+def daily_stats(v: Vehicle, days: int) -> dict[str, Any]:
+    """The latest `days` days of energy figures, newest first."""
     stats = sorted(_get(v, "daily_stats") or [], key=lambda s: s.date or dt.datetime.min, reverse=True)
-    return clean(stats[:days])
+    every = clean(stats)
+    return listing(every[:days], total=len(every))

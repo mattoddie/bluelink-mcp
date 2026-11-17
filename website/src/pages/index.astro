@@ -15,12 +15,12 @@ const groupIcons: Record<string, string> = {
 };
 
 const examples = [
-  { icon: "🔋", q: "How much charge has the EV6 got, and is it plugged in?", tools: ["get_vehicle_status"] },
-  { icon: "🥶", q: "It's freezing. Warm the car to 21° with the windscreen defrost on.", tools: ["start_climate"] },
-  { icon: "🔒", q: "Did I lock the car? Lock it if not.", tools: ["get_vehicle_status", "lock_vehicle"] },
-  { icon: "📍", q: "Where did I park?", tools: ["get_vehicle_location"] },
-  { icon: "🗺️", q: "How far did I drive this month, and what was my longest trip?", tools: ["get_trips"] },
-  { icon: "⚡", q: "How much energy went on heating versus driving this week?", tools: ["get_energy_usage"] },
+  { icon: "🔋", q: "How much charge has the EV6 got, and is it plugged in?", tools: ["bluelink_get_vehicle_status"] },
+  { icon: "🥶", q: "It's freezing. Warm the car to 21° with the windscreen defrost on.", tools: ["bluelink_start_climate"] },
+  { icon: "🔒", q: "Did I lock the car? Lock it if not.", tools: ["bluelink_get_vehicle_status", "bluelink_lock_vehicle"] },
+  { icon: "📍", q: "Where did I park?", tools: ["bluelink_get_vehicle_location"] },
+  { icon: "🗺️", q: "How far did I drive this month, and what was my longest trip?", tools: ["bluelink_get_trips"] },
+  { icon: "⚡", q: "How much energy went on heating versus driving this week?", tools: ["bluelink_get_energy_usage"] },
 ];
 
 const cars = ["Hyundai Bluelink", "Kia Connect (UVO)", "Genesis Connect", "Plug-in hybrids", "EVs", "Petrol & hybrid", "Europe & UK", "USA & Canada", "Australia"];
@@ -179,7 +179,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
             <div class="chat-body" id="chat">
               <div class="msg user" data-step="0">I'm leaving in 15 minutes. Is the car ready?</div>
               <div class="calls" data-step="1">
-                <span class="call"><i></i>get_vehicle_status<b>Santa Fe</b></span>
+                <span class="call"><i></i>bluelink_get_vehicle_status<b>Santa Fe</b></span>
               </div>
               <div class="msg bot" data-step="2">
                 Charging finished at 06:10: you're at <mark>100%</mark>, with <mark>34 miles</mark> of electric range and
@@ -188,7 +188,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
               </div>
               <div class="msg user" data-step="3">Yes please, 21 degrees.</div>
               <div class="calls" data-step="4">
-                <span class="call write"><i></i>start_climate<b>21 °C · defrost · 15 min</b></span>
+                <span class="call write"><i></i>bluelink_start_climate<b>21 °C · defrost · 15 min</b></span>
               </div>
               <div class="msg bot" data-step="5">
                 Done. The car confirmed it, so the cabin is warming to <mark>21 °C</mark> with the windscreen defrost on. It's running on
@@ -291,17 +291,17 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
             <div class="level on">
               <div class="lv-head"><span class="pill r">read</span><span class="switch on" aria-hidden="true"></span></div>
               <p><strong>{totals.read} tools</strong>, always on</p>
-              <code>get_vehicle_status · get_trips · get_energy_usage …</code>
+              <code>bluelink_get_vehicle_status · bluelink_get_trips · bluelink_get_energy_usage …</code>
             </div>
             <div class="level">
               <div class="lv-head"><span class="pill w">write</span><span class="switch" aria-hidden="true"></span></div>
               <p><strong>{totals.write} tools</strong> with <code>BLUELINK_ALLOW_WRITES=true</code></p>
-              <code>start_climate · lock_vehicle · start_charging …</code>
+              <code>bluelink_start_climate · bluelink_lock_vehicle · bluelink_start_charging …</code>
             </div>
             <div class="level">
               <div class="lv-head"><span class="pill d">unlock</span><span class="switch" aria-hidden="true"></span></div>
               <p><strong>{totals.unlock} tool</strong> with <code>BLUELINK_ALLOW_UNLOCK=true</code> as well</p>
-              <code>unlock_vehicle</code>
+              <code>bluelink_unlock_vehicle</code>
             </div>
           </div>
         </div>

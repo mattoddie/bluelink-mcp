@@ -89,7 +89,7 @@ BLUELINK_USERNAME=... BLUELINK_PASSWORD=... BLUELINK_PIN=... \
   npx @modelcontextprotocol/inspector uv run bluelink-mcp
 ```
 
-Go easy on `refresh_vehicle_status` and commands while developing. Every refresh wakes the car, and Bluelink limits API calls per day.
+Go easy on `bluelink_refresh_vehicle_status` and commands while developing. Every refresh wakes the car, and Bluelink limits API calls per day.
 
 To see the library's requests, run the server with `LOG_LEVEL=debug`. Never paste that output publicly: it contains tokens and your car's VIN and location.
 

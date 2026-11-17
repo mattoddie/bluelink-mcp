@@ -32,7 +32,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
     MCP_TRANSPORT=http \
     MCP_HTTP_HOST=0.0.0.0 \
     MCP_HTTP_PORT=8080 \
-    BLUELINK_TOKEN_FILE=/data/token.json
+    BLUELINK_TOKEN_FILE=/data/tokens.json
 USER app
 VOLUME /data
 EXPOSE 8080
