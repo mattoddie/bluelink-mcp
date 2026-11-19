@@ -9,7 +9,7 @@ authors = [
 requires-python = ">=3.12"
 license = "MIT"
 dependencies = [
-    "hyundai-kia-connect-api>=5.1.2,<6",
+    "hyundai-kia-connect-api>=5.2.1,<6",
     "mcp[cli]>=2.3.0",
 ]
 
