@@ -6,6 +6,14 @@ For bluelink-mcp, the "public API" is the set of tool names, their arguments and
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-26
+
+This release updates dependencies. Tools, arguments and settings are unchanged: bluelink-mcp still has 24 tools (7 read, 16 write and 1 unlock).
+
+### Fixed
+
+- Updated `hyundai_kia_connect_api` to 5.2.1, which fixes several things for European cars: whether an EV is charging, the plug state when the connector lock is idle, seat and steering wheel heating on older climate commands, and the time of the last update, which now comes from the car instead of the server's clock. In the USA, vented Hyundai windows now show as open.
+
 ## [0.6.0] - 2026-11-17
 
 This release renames every tool with a `bluelink_` prefix and aligns arguments, output and the token file with the other mattoddie MCP servers ahead of 1.0. bluelink-mcp has 24 tools (7 read, 16 write and 1 unlock). Read the **Breaking** entries before upgrading.
@@ -171,7 +179,8 @@ This release follows a security review. **It has breaking changes**; check the f
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation and website, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/mattoddie/bluelink-mcp/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/mattoddie/bluelink-mcp/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mattoddie/bluelink-mcp/compare/v0.3.1...v0.4.0
