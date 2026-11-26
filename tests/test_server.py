@@ -222,7 +222,7 @@ def test_location(tmp_path):
     server, _ = make(tmp_path, BLUELINK_ALLOW_LOCATION="true")
     data, _ = call(server, "bluelink_get_vehicle_location")
     assert (data["latitude"], data["longitude"]) == (51.5, -0.12)
-    assert "openstreetmap.org" in data["map"]
+    assert data["map"] == "https://www.openstreetmap.org/?mlat=51.5&mlon=-0.12#map=17/51.5/-0.12"
 
 
 def test_location_is_off_by_default(tmp_path):
