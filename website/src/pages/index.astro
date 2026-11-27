@@ -326,6 +326,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
             Run it once and share it, or start it per session with <code>uv run</code> or <code>docker run -i</code>. Commands wait
             for the car to confirm.
             On Claude Desktop, install the one-click bundle from the <a href={`${GITHUB}/releases/latest`}>latest release</a>.
+            No Docker? Install it with <a href="/docs/deployment/#with-homebrew">Homebrew</a>.
             <a href="/docs/clients/">Client setup →</a>
           </p>
         </div>
@@ -353,6 +354,7 @@ const connectSnippet = `claude mcp add --transport http bluelink \\
               <button class="copy" data-copy={composeSnippet} aria-label="Copy commands">Copy</button>
               <pre><code>{composeSnippet}</code></pre>
             </div>
+            <p class="muted">No Docker? On macOS or Linux, run <code>brew install mattoddie/tap/bluelink-mcp</code>. <a href="/docs/deployment/#running-without-docker">Running without Docker →</a></p>
           </li>
           <li>
             <span class="num">3</span>
